@@ -2,8 +2,6 @@
 
 Projeto 1 - Unidade Curricular: Aplicações Informáticas
 
-Data: 24 de setembro de 2026
-
 Para: Professor Rui Humberto Pereira
 
 ## Grupo: Poliana Duarte, Débora Oliveira e Beatriz Pinto
@@ -348,9 +346,5 @@ O backlog organiza os requisitos funcionais já definidos como itens de trabalho
 | US06 | Gestão de Consentimento e Direitos do Titular dos Dados (RGPD) — Como cidadão, quero controlar os meus dados pessoais dentro da aplicação, para que possa exercer os meus direitos de privacidade sem depender de pedidos manuais ao administrador. | Média | 5 | Sprint 2 |
 | US07 | Acompanhamento de Candidaturas — Como cidadão, quero registar e acompanhar o estado das candidaturas que submeti, para que saiba em que ponto está cada pedido. | Média | 3 | Sprint 3 |
 
-Estimativa total: 39 pontos. A ordem dos sprints segue as dependências entre funcionalidades: primeiro a base de dados de programas, perfis e contas (Sprint 1), depois a pesquisa e o motor de recomendação, incluindo os direitos do titular dos dados (Sprint 2), e por fim o acompanhamento de candidaturas e os ajustes finais (Sprint 3).
 
-## Próximos Passos
-
-Aguardamos a aprovação do tema e da composição do grupo. Este documento serve de base ao levantamento de requisitos, casos de uso, diagramas BPMN e backlog a entregar na 1.ª fase do Projeto 1 (8 de outubro).
 
