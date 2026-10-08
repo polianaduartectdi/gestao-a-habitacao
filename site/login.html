@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar | Apoio à Habitação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js"></script>
+</head>
+
+<body>
+<button class="theme-toggle theme-toggle--float" id="theme-toggle" type="button">Modo escuro</button>
+  <main class="login">
+
+    <aside class="login__side">
+      <a class="logo" href="index.html">
+        <img src="logo.png" alt="">
+        <span>Apoio à Habitação</span>
+      </a>
+      <h1>Bem-vindo de volta.</h1>
+      <p>Entre para acompanhar os seus pedidos e continuar onde ficou.</p>
+    </aside>
+
+    <section class="login__panel">
+      <form class="form" action="#" method="post" novalidate>
+        <h2>Entrar na sua conta</h2>
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" required>
+
+        <label for="password">Palavra-passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <div class="form__row">
+          <label class="check" for="remember">
+            <input id="remember" name="remember" type="checkbox">
+            Manter sessão iniciada
+          </label>
+          <a href="#">Esqueceu a palavra-passe?</a>
+        </div>
+
+        <button class="btn btn--full" type="submit">Entrar</button>
+
+        <p class="form__foot">Ainda não tem conta? <a href="registar.html">Criar conta</a></p>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>

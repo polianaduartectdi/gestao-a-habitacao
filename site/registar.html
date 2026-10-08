@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registar | Apoio à Habitação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js"></script>
+</head>
+
+<body>
+<button class="theme-toggle theme-toggle--float" id="theme-toggle" type="button">Modo escuro</button>
+  <main class="registar">
+
+    <aside class="registar__side">
+      <a class="logo" href="index.html">
+        <img src="logo.png" alt="">
+        <span>Apoio à Habitação</span>
+      </a>
+      <h1>Registe-se</h1>
+      <p>Crie uma conta para acompanhar os seus pedidos e continuar onde ficou.</p>
+    </aside>
+
+    <section class="registar__panel">
+      <form class="form" action="#" method="post" novalidate>
+        <h2>Registar</h2>
+
+        <label for="name">Nome</label>
+        <input id="name" name="name" type="text" autocomplete="name" placeholder="Nome" required>
+
+        <label for="apelido">Apelido</label>
+        <input id="apelido" name="apelido" type="text" autocomplete="family-name" placeholder="Apelido" required>
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" required>
+
+        <label for="password">Palavra-passe</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" placeholder="Palavra-passe" required>
+
+        <div class="form__row">
+          <label class="check" for="remember">
+            <input id="remember" name="remember" type="checkbox">
+            Manter sessão iniciada
+          </label>
+        </div>
+
+        <button class="btn btn--full" type="submit">Registar</button>
+
+        <p class="form__foot">Já tem conta? <a href="login.html">Entrar</a></p>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>
