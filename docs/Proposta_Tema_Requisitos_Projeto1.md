@@ -1,4 +1,4 @@
-# Proposta de Tema
+# Relatório de Análise de Requisitos
 
 Projeto 1 - Unidade Curricular: Aplicações Informáticas
 
