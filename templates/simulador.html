@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Programas adequados | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <p><a href="{{ url_for('cliente') }}">&larr; Voltar ao meu perfil</a></p>
+    <h1>Programas adequados ao seu perfil</h1>
+    <p class="lead">Resultados calculados automaticamente com base nas respostas guardadas no seu perfil.</p>
+
+    <section class="section results" aria-live="polite">
+      <p class="muted">Esta é uma pré-triagem informativa, baseada nos critérios registados. Não confirma a elegibilidade nem substitui a validação pela entidade responsável.</p>
+
+      {% if programas %}
+      <div class="cards">
+        {% for p in programas %}
+        <article class="card">
+          <p class="card__entidade">{{ p.entidade }}</p>
+          <h2>{{ p.nome }}</h2>
+          <p class="card__texto">{{ p.descricao }}</p>
+          {% if p.dados_em_falta %}
+          <p class="muted"><strong>Potencialmente compatível.</strong> Para confirmar, indique: {{ p.dados_em_falta|join(', ') }}.</p>
+          {% else %}
+          <p class="muted"><strong>Compatível com os dados indicados.</strong> A elegibilidade oficial deve ser confirmada junto da entidade responsável.</p>
+          {% endif %}
+          <p><a href="{{ url_for('detalhe_programa', programa_id=p.id) }}">Ver detalhes e candidatura</a></p>
+        </article>
+        {% endfor %}
+      </div>
+      {% elif not criterios_disponiveis %}
+      <p class="alert">Ainda não há programas com critérios revistos para a pesquisa automática. Volte mais tarde ou contacte a entidade responsável pelos programas.</p>
+      {% else %}
+      <p class="alert">Não encontrámos programas compatíveis com o seu perfil. Pode consultar todos os <a href="{{ url_for('index') }}">programas disponíveis</a>.</p>
+      {% endif %}
+    </section>
+  </main>
+
+</body>
+</html>

@@ -1,0 +1,60 @@
+<form class="form form--wide form--questionnaire profile-form" action="{{ url_for('cliente') }}" method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <fieldset>
+    <legend>Habitação e localização</legend>
+    <label for="concelho">Concelho onde vive</label>
+    <input id="concelho" name="concelho" type="text" maxlength="100" autocomplete="address-level2" value="{{ form.get('concelho', '') }}" required>
+
+    <label for="situacao">Qual é a sua situação habitacional?</label>
+    <select id="situacao" name="situacao" required>
+      <option value="">Selecione uma opção</option>
+      {% for valor, etiqueta in situacoes.items() %}
+      <option value="{{ valor }}" {% if form.get('situacao', '') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="form-grid">
+      <div>
+        <label for="encargo">Renda ou prestação mensal da habitação (€)</label>
+        <input id="encargo" name="encargo" type="number" min="0" max="10000000" step="1" value="{{ form.get('encargo', '') }}" required>
+      </div>
+      <div>
+        <label for="rendimento">Rendimento líquido mensal de todo o agregado (€)</label>
+        <input id="rendimento" name="rendimento" type="number" min="0" max="10000000" step="1" value="{{ form.get('rendimento', '') }}" required>
+      </div>
+    </div>
+    <p class="muted">Indique valores aproximados em euros.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Agregado familiar</legend>
+    <label for="pessoas">Quantas pessoas vivem no agregado?</label>
+    <input id="pessoas" name="pessoas" type="number" min="1" max="30" step="1" value="{{ form.get('pessoas', '') }}" required>
+
+    <div class="check-list">
+      <label class="check"><input type="checkbox" name="criancas" {% if form.get('criancas') %}checked{% endif %}> Há crianças no agregado</label>
+      <label class="check"><input type="checkbox" name="monoparental" {% if form.get('monoparental') %}checked{% endif %}> É uma família monoparental</label>
+      <label class="check"><input type="checkbox" name="dependente" {% if form.get('dependente') %}checked{% endif %}> Há pessoa com deficiência ou dependente</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Prestações sociais</legend>
+    <p class="muted">Selecione as prestações sociais que alguém do agregado recebe atualmente, se aplicável.</p>
+    <div class="check-list">
+      {% for valor, etiqueta in prestacoes_sociais %}
+      <label class="check"><input type="checkbox" name="prestacoes" value="{{ valor }}" {% if valor in form.getlist('prestacoes') %}checked{% endif %}> {{ etiqueta }}</label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  {% include '_perfil_extra_fields.html' %}
+
+  <div class="profile-form__actions">
+    <button class="btn" type="submit">Guardar perfil</button>
+    {% if perfil %}
+    <a class="btn btn--outline" href="{{ url_for('cliente') }}">Cancelar</a>
+    {% endif %}
+  </div>
+</form>

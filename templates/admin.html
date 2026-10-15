@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Administração | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <h1>Administração</h1>
+
+    {% include '_mensagens.html' %}
+
+    <section class="section">
+      <div class="section__head">
+        <h2>Programas de apoio</h2>
+        <a class="btn" href="{{ url_for('novo_programa') }}">Novo programa</a>
+      </div>
+
+      {% if programas %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>ID</th><th>Nome</th><th>Entidade</th><th>Critérios</th><th>Link oficial</th><th>Criado em</th><th>Ações</th></tr>
+          </thead>
+          <tbody>
+            {% for p in programas %}
+            <tr>
+              <td>{{ p.id }}</td>
+              <td>{{ p.nome }}</td>
+              <td>{{ p.entidade }}</td>
+              <td>{{ 'Revistos' if p.criterios_configurados else 'Por rever' }}</td>
+              <td>{{ 'Configurado' if p.url_candidatura else 'Em falta' }}</td>
+              <td>{{ p.criado_em }}</td>
+              <td><a href="{{ url_for('editar_programa', programa_id=p.id) }}">Editar</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="lead">Ainda não há programas. Adicione o primeiro.</p>
+      {% endif %}
+    </section>
+
+    <section class="section">
+      <div class="section__head">
+        <h2>Utilizadores</h2>
+      </div>
+      <p class="lead">{{ utilizadores|length }} utilizador{{ '' if utilizadores|length == 1 else 'es' }} registado{{ '' if utilizadores|length == 1 else 's' }}.</p>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>ID</th><th>Nome</th><th>Email</th><th>Papel</th><th>Email confirmado</th><th>Criado em</th></tr>
+          </thead>
+          <tbody>
+            {% for u in utilizadores %}
+            <tr>
+              <td>{{ u.id }}</td>
+              <td>{{ u.nome }} {{ u.apelido }}</td>
+              <td>{{ u.email }}</td>
+              <td>{{ u.papel }}</td>
+              <td>{{ 'Sim' if u.email_verificado else 'Não' }}</td>
+              <td>{{ u.criado_em }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+</body>
+</html>

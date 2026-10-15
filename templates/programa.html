@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>{{ programa.nome }} | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <p><a href="{{ url_for('index') }}">&larr; Voltar aos programas</a></p>
+    <article class="section">
+      <p class="card__entidade">{{ programa.entidade }}</p>
+      <h1>{{ programa.nome }}</h1>
+      <p class="lead">{{ programa.descricao }}</p>
+
+      {% if programa.url_candidatura %}
+      <p><a class="btn" href="{{ programa.url_candidatura }}" target="_blank" rel="noopener noreferrer">Consultar o site oficial / candidatar-me</a></p>
+      {% else %}
+      <p class="alert alert--warning">O link oficial de informações ou candidatura ainda não foi configurado. Confirme o endereço junto de {{ programa.entidade }}.</p>
+      {% endif %}
+
+      {% if not programa.criterios_configurados %}
+      <p class="alert alert--warning">Os critérios deste programa ainda não foram revistos para a pesquisa automática. Confirme as condições atuais junto da entidade responsável.</p>
+      {% endif %}
+
+      <section class="section" aria-labelledby="criterios-title">
+        <h2 id="criterios-title">Critérios e informação disponível</h2>
+        {% if criterios %}
+        <ul>
+          {% for criterio in criterios %}
+          <li>{{ criterio }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Não foram registados critérios específicos para este programa.</p>
+        {% endif %}
+      </section>
+
+      <p class="muted">Esta informação é indicativa e não confirma a elegibilidade. Consulte o site oficial ou contacte a entidade responsável para confirmar os requisitos, prazos e disponibilidade atuais.</p>
+      {% if g.user and g.user.papel == 'admin' %}
+      <p><a href="{{ url_for('editar_programa', programa_id=programa.id) }}">Editar este programa</a></p>
+      {% endif %}
+    </article>
+  </main>
+
+</body>
+</html>

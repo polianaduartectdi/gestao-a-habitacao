@@ -1,0 +1,22 @@
+  <header class="header">
+    <div class="header__inner">
+      <a class="logo" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="">
+        <span>Apoio à Habitação</span>
+      </a>
+
+      <nav class="actions" aria-label="Conta">
+        <button class="theme-toggle" id="theme-toggle" type="button">Modo escuro</button>
+        {% if g.user %}
+          <a class="btn btn--outline" href="{{ url_for('admin' if g.user.papel == 'admin' else 'cliente') }}">{{ g.user.nome }}</a>
+          <form action="{{ url_for('logout') }}" method="post">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn" type="submit">Sair</button>
+          </form>
+        {% else %}
+          <a class="btn btn--outline" href="{{ url_for('login') }}">Entrar</a>
+          <a class="btn" href="{{ url_for('registar') }}">Registar</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>

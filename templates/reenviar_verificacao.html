@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Confirmar email | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+<button class="theme-toggle theme-toggle--float" id="theme-toggle" type="button">Modo escuro</button>
+  <main class="login">
+
+    <aside class="login__side">
+      <a class="logo" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="">
+        <span>Apoio à Habitação</span>
+      </a>
+      <h1>Confirme o seu email.</h1>
+      <p>Enviámos-lhe um link de confirmação ao registar-se. Se não o recebeu ou expirou, peça outro.</p>
+    </aside>
+
+    <section class="login__panel">
+      <form class="form" action="{{ url_for('reenviar_verificacao') }}" method="post" novalidate>
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <h2>Reenviar confirmação</h2>
+
+        {% include '_mensagens.html' %}
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" value="{{ form.get('email', '') }}" required>
+
+        <button class="btn btn--full" type="submit">Enviar novo link</button>
+
+        <p class="form__foot"><a href="{{ url_for('login') }}">Voltar a entrar</a></p>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>

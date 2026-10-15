@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Nova palavra-passe | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+<button class="theme-toggle theme-toggle--float" id="theme-toggle" type="button">Modo escuro</button>
+  <main class="login">
+
+    <aside class="login__side">
+      <a class="logo" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="">
+        <span>Apoio à Habitação</span>
+      </a>
+      <h1>Nova palavra-passe.</h1>
+      <p>Escolha uma palavra-passe com pelo menos 8 caracteres.</p>
+    </aside>
+
+    <section class="login__panel">
+      <form class="form" action="{{ url_for('redefinir', token=token) }}" method="post" novalidate>
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <h2>Redefinir palavra-passe</h2>
+
+        {% include '_mensagens.html' %}
+
+        <label for="password">Nova palavra-passe</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required>
+
+        <label for="confirmar">Repetir palavra-passe</label>
+        <input id="confirmar" name="confirmar" type="password" autocomplete="new-password" required>
+
+        <button class="btn btn--full" type="submit">Guardar</button>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>

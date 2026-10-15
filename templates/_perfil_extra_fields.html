@@ -1,0 +1,78 @@
+<fieldset class="profile-additional">
+  <legend>Dados adicionais para avaliar programas específicos</legend>
+  <p class="muted">Preencha os dados que se aplicam. Alguns programas exigem informação adicional para confirmar compatibilidade.</p>
+
+  <div class="form-grid">
+    <div>
+      <label for="regiao">Região</label>
+      <select id="regiao" name="regiao" required>
+        <option value="">Selecione a região</option>
+        {% for valor, etiqueta in regioes.items() %}
+        <option value="{{ valor }}" {% if form.get('regiao', '') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="freguesia">Freguesia (se aplicável)</label>
+      <input id="freguesia" name="freguesia" type="text" maxlength="100" value="{{ form.get('freguesia', '') }}">
+    </div>
+    <div>
+      <label for="idade_candidato">Idade do candidato</label>
+      <input id="idade_candidato" name="idade_candidato" type="number" min="16" max="120" step="1" value="{{ form.get('idade_candidato', '') }}">
+    </div>
+    <div>
+      <label for="idade_parceiro">Idade do cônjuge/parceiro (se aplicável)</label>
+      <input id="idade_parceiro" name="idade_parceiro" type="number" min="16" max="120" step="1" value="{{ form.get('idade_parceiro', '') }}">
+    </div>
+    <div>
+      <label for="rendimento_anual">Rendimento bruto anual do agregado (€)</label>
+      <input id="rendimento_anual" name="rendimento_anual" type="number" min="0" max="100000000" step="1" value="{{ form.get('rendimento_anual', '') }}">
+    </div>
+    <div>
+      <label for="data_contrato">Data de início do contrato de arrendamento (se aplicável)</label>
+      <input id="data_contrato" name="data_contrato" type="date" value="{{ form.get('data_contrato', '') }}">
+    </div>
+    <div>
+      <label for="tipologia">Tipologia da habitação (ou pretendida)</label>
+      <select id="tipologia" name="tipologia">
+        <option value="">Não indicado</option>
+        {% for tipologia in tipologias %}
+        <option value="{{ tipologia }}" {% if form.get('tipologia', '') == tipologia %}selected{% endif %}>{{ tipologia }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="preco_imovel">Preço do imóvel a adquirir (€), se aplicável</label>
+      <input id="preco_imovel" name="preco_imovel" type="number" min="0" max="100000000" step="1" value="{{ form.get('preco_imovel', '') }}">
+    </div>
+  </div>
+
+  <label>Tipos de apoio que procura</label>
+  <div class="check-list">
+    {% for valor, etiqueta in apoios_procurados %}
+    <label class="check"><input type="checkbox" name="apoios" value="{{ valor }}" {% if valor in form.getlist('apoios') %}checked{% endif %}> {{ etiqueta }}</label>
+    {% endfor %}
+  </div>
+
+  <div class="form-grid profile-additional__selects">
+    {% for nome, etiqueta in [
+      ('habitacao_permanente', 'A habitação é ou será própria e permanente?'),
+      ('propriedade_regiao', 'Tem outro imóvel na região onde procura apoio?'),
+      ('carencia_financeira', 'Encontra-se em carência financeira?'),
+      ('condicoes_indignas', 'A habitação tem condições indignas?'),
+      ('residencia_legal', 'Tem nacionalidade portuguesa ou residência legal em Portugal?'),
+      ('lote_disponivel', 'Tem lote disponível para construir (próprio ou cedido)?'),
+      ('projeto_construcao', 'Tem projeto de construção?'),
+      ('negociacao_banco_recente', 'Negociou o crédito com o banco nos últimos 6 meses?')
+    ] %}
+    <div>
+      <label for="{{ nome }}">{{ etiqueta }}</label>
+      <select id="{{ nome }}" name="{{ nome }}">
+        <option value="">Não indicado</option>
+        <option value="sim" {% if form.get(nome, '') == 'sim' %}selected{% endif %}>Sim</option>
+        <option value="nao" {% if form.get(nome, '') == 'nao' %}selected{% endif %}>Não</option>
+      </select>
+    </div>
+    {% endfor %}
+  </div>
+</fieldset>

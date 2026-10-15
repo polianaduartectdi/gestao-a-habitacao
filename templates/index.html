@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <h1>Programas de apoio</h1>
+    <p class="lead">Conheça os apoios disponíveis em matéria de habitação.</p>
+    {% if g.user and g.user.papel == 'cliente' %}
+    <p><a class="btn" href="{{ url_for('simulador') }}">Descobrir apoios adequados ao meu perfil</a></p>
+    {% elif not g.user %}
+    <p class="muted">Entre ou crie uma conta de cliente para verificar que apoios poderão ser adequados ao seu perfil.</p>
+    {% endif %}
+
+    {% if programas %}
+    <div class="cards">
+      {% for p in programas %}
+      <article class="card">
+        <p class="card__entidade">{{ p.entidade }}</p>
+        <h2>{{ p.nome }}</h2>
+        <p class="card__texto">{{ p.descricao }}</p>
+        <p><a href="{{ url_for('detalhe_programa', programa_id=p.id) }}">Ver detalhes do programa</a></p>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="lead">Ainda não há programas publicados.</p>
+    {% endif %}
+  </main>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Entrar | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+<button class="theme-toggle theme-toggle--float" id="theme-toggle" type="button">Modo escuro</button>
+  <main class="login">
+
+    <aside class="login__side">
+      <a class="logo" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="">
+        <span>Apoio à Habitação</span>
+      </a>
+      <h1>Bem-vindo de volta.</h1>
+      <p>Entre para acompanhar os seus pedidos e continuar onde ficou.</p>
+    </aside>
+
+    <section class="login__panel">
+      <form class="form" action="{{ url_for('login') }}" method="post" novalidate>
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <h2>Entrar na sua conta</h2>
+
+        {% include '_mensagens.html' %}
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" value="{{ form.get('email', '') }}" required>
+
+        <label for="password">Palavra-passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <div class="form__row">
+          <label class="check" for="remember">
+            <input id="remember" name="remember" type="checkbox">
+            Manter sessão iniciada
+          </label>
+          <a href="{{ url_for('recuperar') }}">Esqueceu a palavra-passe?</a>
+        </div>
+
+        <button class="btn btn--full" type="submit">Entrar</button>
+
+        <p class="form__foot">Ainda não tem conta? <a href="{{ url_for('registar') }}">Criar conta</a></p>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>

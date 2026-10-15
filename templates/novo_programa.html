@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>{{ 'Editar programa' if editar else 'Novo programa' }} | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <p><a href="{{ url_for('admin') }}">&larr; Voltar à administração</a></p>
+    <h1>{{ 'Editar programa de apoio' if editar else 'Novo programa de apoio' }}</h1>
+
+    <form class="form form--wide" action="{{ url_for('editar_programa', programa_id=programa_id) if editar else url_for('novo_programa') }}" method="post" novalidate>
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+      {% include '_mensagens.html' %}
+
+      <label for="nome">Nome do programa</label>
+      <input id="nome" name="nome" type="text" maxlength="120" placeholder="Ex.: Porta de Entrada" value="{{ form.get('nome', '') }}" required>
+
+      <label for="entidade">Entidade responsável</label>
+      <input id="entidade" name="entidade" type="text" maxlength="120" placeholder="Ex.: IHRU" value="{{ form.get('entidade', '') }}" required>
+
+      <label for="descricao">Descrição</label>
+      <textarea id="descricao" name="descricao" rows="6" maxlength="2000" placeholder="Em que consiste o apoio, a quem se destina..." required>{{ form.get('descricao', '') }}</textarea>
+
+      <label for="url_candidatura">Link oficial para informações ou candidatura</label>
+      <input id="url_candidatura" name="url_candidatura" type="url" maxlength="2000" placeholder="https://..." value="{{ form.get('url_candidatura', '') }}">
+      <p class="muted">Use o endereço oficial da entidade responsável. Se ficar vazio, a página do programa informa que o link ainda não foi configurado.</p>
+
+      <section class="criteria-editor" aria-labelledby="criteria-title">
+        <h2 id="criteria-title">Critérios de elegibilidade</h2>
+        <p class="muted">Preencha apenas os limites ou condições que se aplicam. Um campo vazio não restringe a correspondência.</p>
+
+        <label for="concelhos">Concelhos abrangidos</label>
+        <input id="concelhos" name="concelhos" type="text" maxlength="1000" placeholder="Ex.: Porto, Matosinhos, Maia" value="{{ criterios.get('concelhos', [])|join(', ') }}">
+
+        <label>Regiões abrangidas (sem seleção = todo o país)</label>
+        <div class="check-list">
+          {% for valor, etiqueta in regioes.items() %}
+          <label class="check"><input type="checkbox" name="regioes" value="{{ valor }}" {% if valor in criterios.get('regioes', []) %}checked{% endif %}> {{ etiqueta }}</label>
+          {% endfor %}
+        </div>
+
+        <label for="freguesias">Freguesias abrangidas</label>
+        <input id="freguesias" name="freguesias" type="text" maxlength="1000" placeholder="Ex.: Santa Clara, São Brás" value="{{ criterios.get('freguesias', [])|join(', ') }}">
+
+        <label>Condições habitacionais</label>
+        <div class="check-list">
+          {% for valor, etiqueta in situacoes %}
+          <label class="check"><input type="checkbox" name="situacoes" value="{{ valor }}" {% if valor in criterios.get('situacoes', []) %}checked{% endif %}> {{ etiqueta }}</label>
+          {% endfor %}
+        </div>
+
+        <div class="form-grid">
+          <div>
+            <label for="rendimento_max">Rendimento líquido máximo mensal do agregado (€)</label>
+            <input id="rendimento_max" name="rendimento_max" type="number" min="0" step="1" value="{{ criterios.get('rendimento_max', '') }}">
+          </div>
+          <div>
+            <label for="rendimento_anual_min">Rendimento bruto anual mínimo (€)</label>
+            <input id="rendimento_anual_min" name="rendimento_anual_min" type="number" min="0" step="1" value="{{ criterios.get('rendimento_anual_min', '') }}">
+          </div>
+          <div>
+            <label for="rendimento_anual_max">Rendimento bruto anual máximo (€)</label>
+            <input id="rendimento_anual_max" name="rendimento_anual_max" type="number" min="0" step="1" value="{{ criterios.get('rendimento_anual_max', '') }}">
+          </div>
+          <div>
+            <label for="idade_min">Idade mínima do candidato</label>
+            <input id="idade_min" name="idade_min" type="number" min="16" max="120" step="1" value="{{ criterios.get('idade_min', '') }}">
+          </div>
+          <div>
+            <label for="idade_max">Idade máxima do candidato</label>
+            <input id="idade_max" name="idade_max" type="number" min="16" max="120" step="1" value="{{ criterios.get('idade_max', '') }}">
+          </div>
+          <div>
+            <label for="data_contrato_ate">Contrato celebrado até</label>
+            <input id="data_contrato_ate" name="data_contrato_ate" type="date" value="{{ criterios.get('data_contrato_ate', '') }}">
+          </div>
+          <div>
+            <label for="encargo_max">Renda/prestação máxima mensal (€)</label>
+            <input id="encargo_max" name="encargo_max" type="number" min="0" step="1" value="{{ criterios.get('encargo_max', '') }}">
+          </div>
+          <div>
+            <label for="agregado_min">Pessoas no agregado — mínimo</label>
+            <input id="agregado_min" name="agregado_min" type="number" min="1" max="30" step="1" value="{{ criterios.get('agregado_min', '') }}">
+          </div>
+          <div>
+            <label for="agregado_max">Pessoas no agregado — máximo</label>
+            <input id="agregado_max" name="agregado_max" type="number" min="1" max="30" step="1" value="{{ criterios.get('agregado_max', '') }}">
+          </div>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" name="limites_rendimento_confirmados" value="1" {% if not criterios.get('requer_confirmacao_limites_rendimento') %}checked{% endif %}>
+          Confirmei que os limites de rendimento aplicáveis estão completos (ou que não existem)
+        </label>
+
+        <label>Renda máxima por dimensão do agregado (€)</label>
+        <div class="form-grid">
+          {% for chave, etiqueta in [('1', '1 pessoa'), ('2', '2 pessoas'), ('3', '3 pessoas'), ('4', '4 ou mais pessoas')] %}
+          <div>
+            <label for="encargo_max_pessoas_{{ chave }}">{{ etiqueta }}</label>
+            <input id="encargo_max_pessoas_{{ chave }}" name="encargo_max_pessoas_{{ chave }}" type="number" min="0" step="1" value="{{ criterios.get('encargo_max_por_pessoas', {}).get(chave, '') }}">
+          </div>
+          {% endfor %}
+        </div>
+
+        <label>Preço máximo do imóvel por tipologia (€)</label>
+        <div class="form-grid">
+          {% for tipologia in tipologias %}
+          <div>
+            <label for="preco_max_{{ tipologia|lower }}">{{ tipologia }}</label>
+            <input id="preco_max_{{ tipologia|lower }}" name="preco_max_{{ tipologia|lower }}" type="number" min="0" step="1" value="{{ criterios.get('preco_imovel_max_por_tipologia', {}).get(tipologia, '') }}">
+          </div>
+          {% endfor %}
+        </div>
+
+        <label>Tipos de apoio abrangidos</label>
+        <div class="check-list">
+          {% for valor, etiqueta in apoios_procurados %}
+          <label class="check"><input type="checkbox" name="apoios" value="{{ valor }}" {% if valor in criterios.get('apoios', []) %}checked{% endif %}> {{ etiqueta }}</label>
+          {% endfor %}
+        </div>
+
+        <label>Tipologias disponíveis</label>
+        <div class="check-list">
+          {% for tipologia in tipologias %}
+          <label class="check"><input type="checkbox" name="tipologias" value="{{ tipologia }}" {% if tipologia in criterios.get('tipologias', []) %}checked{% endif %}> {{ tipologia }}</label>
+          {% endfor %}
+        </div>
+
+        <label>Composição do agregado</label>
+        <div class="check-list">
+          <label class="check"><input type="checkbox" name="exige_criancas" {% if criterios.get('criancas') %}checked{% endif %}> Exige crianças no agregado</label>
+          <label class="check"><input type="checkbox" name="exige_monoparental" {% if criterios.get('monoparental') %}checked{% endif %}> Exige família monoparental</label>
+          <label class="check"><input type="checkbox" name="exige_dependente" {% if criterios.get('dependente') %}checked{% endif %}> Exige pessoa com deficiência ou dependente</label>
+          <label class="check"><input type="checkbox" name="casal_aceita_36" {% if criterios.get('casal_aceita_36') %}checked{% endif %}> No casal, um dos candidatos pode ter 36 anos</label>
+          <label class="check"><input type="checkbox" name="exige_habitacao_permanente" {% if criterios.get('habitacao_permanente') %}checked{% endif %}> Exige habitação própria e permanente</label>
+          <label class="check"><input type="checkbox" name="exige_sem_propriedade_regiao" {% if criterios.get('propriedade_regiao') == 'nao' %}checked{% endif %}> Exige não possuir outro imóvel na região</label>
+          <label class="check"><input type="checkbox" name="exige_carencia_financeira" {% if criterios.get('carencia_financeira') %}checked{% endif %}> Exige carência financeira</label>
+          <label class="check"><input type="checkbox" name="exige_condicoes_indignas" {% if criterios.get('condicoes_indignas') %}checked{% endif %}> Exige condições habitacionais indignas</label>
+          <label class="check"><input type="checkbox" name="exige_residencia_legal" {% if criterios.get('residencia_legal') %}checked{% endif %}> Exige nacionalidade portuguesa ou residência legal</label>
+          <label class="check"><input type="checkbox" name="exige_lote_disponivel" {% if criterios.get('lote_disponivel') %}checked{% endif %}> Exige lote disponível para construção</label>
+          <label class="check"><input type="checkbox" name="exige_projeto_construcao" {% if criterios.get('projeto_construcao') %}checked{% endif %}> Exige projeto de construção</label>
+          <label class="check"><input type="checkbox" name="exige_negociacao_banco_recente" {% if criterios.get('negociacao_banco_recente') %}checked{% endif %}> Exige negociação com o banco nos últimos 6 meses</label>
+        </div>
+
+        <label>Prestações sociais elegíveis (basta uma)</label>
+        <div class="check-list">
+          {% for valor, etiqueta in prestacoes %}
+          <label class="check"><input type="checkbox" name="prestacoes" value="{{ valor }}" {% if valor in criterios.get('prestacoes', []) %}checked{% endif %}> {{ etiqueta }}</label>
+          {% endfor %}
+        </div>
+
+        <label class="check criteria-ready">
+          <input type="checkbox" name="criterios_configurados" value="1" {% if criterios_configurados %}checked{% endif %}>
+          Critérios revistos e prontos para correspondência automática
+        </label>
+        <p class="muted">Só os programas assinalados como revistos aparecem nos resultados. Confirme todos os critérios antes de ativar a correspondência automática; campos sem restrição são tratados como não limitativos.</p>
+      </section>
+
+      <button class="btn btn--full" type="submit">{{ 'Guardar alterações' if editar else 'Guardar programa' }}</button>
+    </form>
+  </main>
+
+</body>
+</html>
