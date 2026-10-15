@@ -75,3 +75,6 @@ preencha o campo «Link oficial para informações ou candidatura» com o endere
 da entidade responsável. Os links oficiais fornecidos para o catálogo inicial
 são aplicados automaticamente a cada arranque, incluindo às bases de dados
 existentes.
+
+# Codespace
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/polianaduartectdi/gestao-a-habitacao?quickstart=1)
