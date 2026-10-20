@@ -990,13 +990,86 @@ def enviar_email_em_segundo_plano(destino, assunto, corpo):
 
 # ---------------------------------------------------------------- Rotas
 
+def filtrar_programas(programas, regiao=None, rendimento_mensal=None,
+                      rendimento_anual=None):
+    filtrados = []
+    for programa in programas:
+        try:
+            criterios = json.loads(programa["criterios_json"] or "{}")
+        except (TypeError, ValueError):
+            criterios = {}
+
+        regioes = criterios.get("regioes") or []
+        if regiao and regioes and regiao not in regioes:
+            continue
+
+        rendimento_max = criterios.get("rendimento_max")
+        if (rendimento_mensal is not None and rendimento_max is not None
+                and rendimento_mensal > rendimento_max):
+            continue
+
+        rendimento_anual_min = criterios.get("rendimento_anual_min")
+        rendimento_anual_max = criterios.get("rendimento_anual_max")
+        if (rendimento_anual is not None
+                and rendimento_anual_min is not None
+                and rendimento_anual < rendimento_anual_min):
+            continue
+        if (rendimento_anual is not None
+                and rendimento_anual_max is not None
+                and rendimento_anual > rendimento_anual_max):
+            continue
+
+        filtrados.append(programa)
+    return filtrados
+
+
 @app.route("/")
 def index():
+    regiao = request.args.get("regiao", "")
+    erros_filtro = []
+    if regiao and regiao not in {valor for valor, _ in REGIOES}:
+        erros_filtro.append("Selecione uma região válida.")
+        regiao = ""
+
+    def obter_rendimento(nome, maximo, etiqueta):
+        valor = request.args.get(nome, "").strip()
+        if not valor:
+            return None, ""
+        try:
+            numero = int(valor)
+        except ValueError:
+            erros_filtro.append(f"{etiqueta}: indique um valor inteiro válido.")
+            return None, valor
+        if not 0 <= numero <= maximo:
+            erros_filtro.append(f"{etiqueta}: indique um valor entre 0 e {maximo} €.")
+            return None, valor
+        return numero, valor
+
+    rendimento_mensal, rendimento_mensal_form = obter_rendimento(
+        "rendimento_mensal", 10000000, "Rendimento líquido mensal"
+    )
+    rendimento_anual, rendimento_anual_form = obter_rendimento(
+        "rendimento_anual", 100000000, "Rendimento bruto anual"
+    )
     programas = get_db().execute(
-        "SELECT id, nome, entidade, descricao "
+        "SELECT id, nome, entidade, descricao, criterios_json "
         "FROM programas ORDER BY criado_em DESC, id DESC"
     ).fetchall()
-    return render_template("index.html", programas=programas)
+    programas = filtrar_programas(
+        programas, regiao, rendimento_mensal, rendimento_anual
+    )
+    return render_template(
+        "index.html",
+        programas=programas,
+        regiao=regiao,
+        rendimento_mensal=rendimento_mensal_form,
+        rendimento_anual=rendimento_anual_form,
+        erros_filtro=erros_filtro,
+        filtros_aplicados=bool(
+            regiao or rendimento_mensal_form or rendimento_anual_form
+        ),
+        regioes=REGIOES,
+    )
 
 
 @app.route("/programas/<int:programa_id>")

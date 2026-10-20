@@ -17,7 +17,37 @@
     <p class="muted">Entre ou crie uma conta de cliente para verificar que apoios poderão ser adequados ao seu perfil.</p>
     {% endif %}
 
+    <form class="program-filters" method="get" action="{{ url_for('index') }}">
+      <div class="form-grid">
+        <div>
+          <label for="regiao">Região</label>
+          <select id="regiao" name="regiao">
+            <option value="">Todas as regiões</option>
+            {% for valor, etiqueta in regioes %}
+            <option value="{{ valor }}" {% if regiao == valor %}selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="rendimento_mensal">Rendimento líquido mensal do agregado (€)</label>
+          <input id="rendimento_mensal" name="rendimento_mensal" type="number" min="0" max="10000000" step="1" value="{{ rendimento_mensal }}">
+        </div>
+        <div>
+          <label for="rendimento_anual">Rendimento bruto anual do agregado (€)</label>
+          <input id="rendimento_anual" name="rendimento_anual" type="number" min="0" max="100000000" step="1" value="{{ rendimento_anual }}">
+        </div>
+      </div>
+      {% for erro in erros_filtro %}
+      <p class="alert alert--error" role="alert">{{ erro }}</p>
+      {% endfor %}
+      <div class="form__row">
+        <button class="btn" type="submit">Aplicar filtros</button>
+        {% if filtros_aplicados %}<a href="{{ url_for('index') }}">Limpar filtros</a>{% endif %}
+      </div>
+    </form>
+
     {% if programas %}
+    <p class="muted" role="status">{{ programas|length }} programa{% if programas|length != 1 %}s{% endif %} encontrado{% if programas|length != 1 %}s{% endif %}.</p>
     <div class="cards">
       {% for p in programas %}
       <article class="card">
@@ -29,7 +59,11 @@
       {% endfor %}
     </div>
     {% else %}
+    {% if filtros_aplicados %}
+    <p class="alert" role="status">Não encontrámos programas com estes filtros. Experimente alterar a região ou os valores de rendimento.</p>
+    {% else %}
     <p class="lead">Ainda não há programas publicados.</p>
+    {% endif %}
     {% endif %}
   </main>
 
