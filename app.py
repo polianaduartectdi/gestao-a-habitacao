@@ -212,6 +212,33 @@ def admin_required(view):
     return wrapper
 
 
+TIPOS_HISTORICO = {
+    "utilizador.criado": "Conta criada",
+    "utilizador.email_verificado": "Email confirmado",
+    "utilizador.palavra_passe_alterada": "Palavra-passe alterada",
+    "perfil.criado": "Perfil criado",
+    "perfil.atualizado": "Perfil atualizado",
+    "programa.criado": "Programa criado",
+    "programa.atualizado": "Programa atualizado",
+}
+
+
+def registar_alteracao(responsavel_id, tipo, entidade, entidade_id):
+    responsavel = get_db().execute(
+        "SELECT nome, apelido, email FROM utilizadores WHERE id = ?",
+        (responsavel_id,),
+    ).fetchone()
+    if responsavel is None:
+        raise ValueError("O responsável pelo evento não existe.")
+    get_db().execute(
+        "INSERT INTO historico_alteracoes "
+        "(tipo, entidade, entidade_id, responsavel_id, responsavel_nome, "
+        "responsavel_email) VALUES (?, ?, ?, ?, ?, ?)",
+        (tipo, entidade, entidade_id, responsavel_id,
+         f"{responsavel['nome']} {responsavel['apelido']}", responsavel["email"]),
+    )
+
+
 def area_do_utilizador(user):
     return url_for("admin" if user["papel"] == "admin" else "cliente")
 
@@ -890,6 +917,10 @@ def validar_perfil_habitacional(form):
 
 def guardar_perfil_habitacional(utilizador_id, perfil):
     db = get_db()
+    perfil_existente = db.execute(
+        "SELECT 1 FROM perfis_habitacionais WHERE utilizador_id = ?",
+        (utilizador_id,),
+    ).fetchone()
     db.execute(
         "INSERT INTO perfis_habitacionais "
         "(utilizador_id, concelho, situacao, rendimento, encargo, pessoas, "
@@ -934,6 +965,12 @@ def guardar_perfil_habitacional(utilizador_id, perfil):
             perfil["preco_imovel"], perfil["lote_disponivel"],
             perfil["projeto_construcao"], perfil["negociacao_banco_recente"],
         ),
+    )
+    registar_alteracao(
+        utilizador_id,
+        "perfil.atualizado" if perfil_existente else "perfil.criado",
+        "perfil",
+        utilizador_id,
     )
     db.commit()
 
@@ -1143,6 +1180,9 @@ def registar():
                     "VALUES (?, ?, ?, ?, 'cliente', 0)",
                     (nome, apelido, email, generate_password_hash(password)),
                 )
+                registar_alteracao(
+                    cursor.lastrowid, "utilizador.criado", "utilizador", cursor.lastrowid
+                )
                 db.commit()
             except sqlite3.IntegrityError:
                 existente = db.execute(
@@ -1284,6 +1324,10 @@ def redefinir(token):
                 "UPDATE utilizadores SET password_hash = ?, email_verificado = 1 WHERE id = ?",
                 (generate_password_hash(password), registo["utilizador_id"]),
             )
+            registar_alteracao(
+                registo["utilizador_id"], "utilizador.palavra_passe_alterada",
+                "utilizador", registo["utilizador_id"],
+            )
             # O link só pode ser usado uma vez
             db.execute("DELETE FROM tokens_recuperacao WHERE utilizador_id = ?",
                        (registo["utilizador_id"],))
@@ -1345,6 +1389,10 @@ def verificar(token):
 
     db.execute("UPDATE utilizadores SET email_verificado = 1 WHERE id = ?",
                (registo["utilizador_id"],))
+    registar_alteracao(
+        registo["utilizador_id"], "utilizador.email_verificado", "utilizador",
+        registo["utilizador_id"],
+    )
     db.execute("DELETE FROM tokens_verificacao WHERE utilizador_id = ?",
                (registo["utilizador_id"],))
     db.commit()
@@ -1458,6 +1506,50 @@ def admin():
     return render_template("admin.html", utilizadores=utilizadores, programas=programas)
 
 
+@app.route("/admin/historico")
+@admin_required
+def historico():
+    data_inicio = request.args.get("data_inicio", "").strip()
+    data_fim = request.args.get("data_fim", "").strip()
+    tipo = request.args.get("tipo", "").strip()
+    filtros = []
+    parametros = []
+
+    for valor, operador in ((data_inicio, ">="), (data_fim, "<=")):
+        if valor:
+            try:
+                datetime.strptime(valor, "%Y-%m-%d")
+            except ValueError:
+                abort(400)
+            filtros.append(f"date(h.criado_em) {operador} date(?)")
+            parametros.append(valor)
+    if data_inicio and data_fim and data_inicio > data_fim:
+        abort(400)
+    if tipo:
+        if tipo not in TIPOS_HISTORICO:
+            abort(400)
+        filtros.append("h.tipo = ?")
+        parametros.append(tipo)
+
+    sql = (
+        "SELECT h.id, h.tipo, h.entidade, h.entidade_id, h.responsavel_id, "
+        "h.responsavel_nome, h.responsavel_email, h.criado_em "
+        "FROM historico_alteracoes h"
+    )
+    if filtros:
+        sql += " WHERE " + " AND ".join(filtros)
+    sql += " ORDER BY h.criado_em DESC, h.id DESC LIMIT 500"
+    eventos = get_db().execute(sql, parametros).fetchall()
+    return render_template(
+        "historico.html",
+        eventos=eventos,
+        tipos=TIPOS_HISTORICO,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        tipo=tipo,
+    )
+
+
 @app.route("/admin/programas/novo", methods=["GET", "POST"])
 @admin_required
 def novo_programa():
@@ -1492,6 +1584,10 @@ def novo_programa():
                 "url_candidatura) VALUES (?, ?, ?, ?, ?, ?)",
                 (nome, entidade, descricao, json.dumps(criterios, ensure_ascii=False),
                  int(bool(request.form.get("criterios_configurados"))), url_candidatura),
+            )
+            programa_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            registar_alteracao(
+                g.user["id"], "programa.criado", "programa", programa_id
             )
             db.commit()
             flash("Programa adicionado com sucesso.", "ok")
@@ -1596,6 +1692,9 @@ def editar_programa(programa_id):
                 (nome, entidade, descricao, json.dumps(criterios, ensure_ascii=False),
                  int(bool(request.form.get("criterios_configurados"))),
                  url_candidatura, programa_id),
+            )
+            registar_alteracao(
+                g.user["id"], "programa.atualizado", "programa", programa_id
             )
             db.commit()
             flash("Programa atualizado com sucesso.", "ok")

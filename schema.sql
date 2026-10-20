@@ -69,3 +69,24 @@ CREATE TABLE IF NOT EXISTS tokens_verificacao (
     expira_em     TEXT NOT NULL,
     criado_em     TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS historico_alteracoes (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo             TEXT NOT NULL CHECK (tipo IN (
+                         'utilizador.criado', 'utilizador.email_verificado',
+                         'utilizador.palavra_passe_alterada',
+                         'perfil.criado', 'perfil.atualizado',
+                         'programa.criado', 'programa.atualizado'
+                     )),
+    entidade         TEXT NOT NULL CHECK (entidade IN ('utilizador', 'perfil', 'programa')),
+    entidade_id      INTEGER NOT NULL CHECK (entidade_id > 0),
+    responsavel_id   INTEGER NOT NULL CHECK (responsavel_id > 0),
+    responsavel_nome TEXT NOT NULL,
+    responsavel_email TEXT NOT NULL,
+    criado_em        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_historico_criado_em
+    ON historico_alteracoes(criado_em DESC);
+CREATE INDEX IF NOT EXISTS idx_historico_tipo_criado_em
+    ON historico_alteracoes(tipo, criado_em DESC);
