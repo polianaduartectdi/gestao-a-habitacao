@@ -25,6 +25,21 @@
       <p class="alert alert--warning">Os critérios deste programa ainda não foram revistos para a pesquisa automática. Confirme as condições atuais junto da entidade responsável.</p>
       {% endif %}
 
+      {% if g.user and g.user.papel == 'cliente' %}
+        {% if candidatura_existente %}
+        <p class="alert alert--ok" role="status">Acompanha este programa com o estado: {{ estados_candidatura[candidatura_existente.estado] }}. <a href="{{ url_for('cliente') }}">Ver histórico</a></p>
+        {% else %}
+        <form class="program-import" action="{{ url_for('registar_candidatura') }}" method="post">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="programa_id" value="{{ programa.id }}">
+          <p>Já submeteu uma candidatura à entidade responsável?</p>
+          <button class="btn" type="submit">Registar candidatura submetida</button>
+        </form>
+        {% endif %}
+      {% elif not g.user %}
+      <p class="muted"><a href="{{ url_for('login') }}">Inicie sessão</a> para registar e acompanhar uma candidatura.</p>
+      {% endif %}
+
       <section class="section" aria-labelledby="criterios-title">
         <h2 id="criterios-title">Critérios e informação disponível</h2>
         {% if criterios %}
@@ -35,6 +50,43 @@
         </ul>
         {% else %}
         <p class="muted">Não foram registados critérios específicos para este programa.</p>
+        {% endif %}
+      </section>
+
+      <section class="section" aria-labelledby="feedback-title">
+        <h2 id="feedback-title">Avaliações dos utilizadores</h2>
+        {% if resumo_feedback.total %}
+        <p class="lead">Avaliação média: {{ '%.1f'|format(resumo_feedback.media) }} / 5 ({{ resumo_feedback.total }} avaliação(ões))</p>
+        {% else %}
+        <p class="muted">Ainda não existem avaliações para este programa.</p>
+        {% endif %}
+
+        {% if g.user and g.user.papel == 'cliente' %}
+        <form class="program-import" action="{{ url_for('avaliar_programa', programa_id=programa.id) }}" method="post">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <label for="avaliacao">A sua avaliação (1 a 5)</label>
+          <select id="avaliacao" name="avaliacao" required>
+            {% for valor in range(1, 6) %}
+            <option value="{{ valor }}" {% if minha_avaliacao and minha_avaliacao.avaliacao == valor %}selected{% endif %}>{{ valor }} / 5</option>
+            {% endfor %}
+          </select>
+          <label for="comentario">Comentário sobre o programa ou a informação disponível</label>
+          <textarea id="comentario" name="comentario" maxlength="1000" rows="4">{{ minha_avaliacao.comentario if minha_avaliacao else '' }}</textarea>
+          <button class="btn" type="submit">{{ 'Atualizar avaliação' if minha_avaliacao else 'Enviar avaliação' }}</button>
+        </form>
+        {% elif not g.user %}
+        <p class="muted"><a href="{{ url_for('login') }}">Inicie sessão</a> para avaliar este programa.</p>
+        {% endif %}
+
+        {% if feedback %}
+        <div class="feedback-list">
+          {% for item in feedback %}
+          <article class="feedback">
+            <p><strong>{{ item.avaliacao }} / 5</strong> — {{ item.criado_em }}</p>
+            {% if item.comentario %}<p>{{ item.comentario }}</p>{% endif %}
+          </article>
+          {% endfor %}
+        </div>
         {% endif %}
       </section>
 

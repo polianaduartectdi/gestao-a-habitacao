@@ -86,7 +86,51 @@ CREATE TABLE IF NOT EXISTS historico_alteracoes (
     criado_em        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS candidaturas (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    utilizador_id INTEGER NOT NULL REFERENCES utilizadores(id) ON DELETE CASCADE,
+    programa_id   INTEGER NOT NULL REFERENCES programas(id) ON DELETE CASCADE,
+    estado        TEXT NOT NULL CHECK (estado IN (
+                      'submetida', 'em_analise', 'aprovada', 'rejeitada', 'cancelada'
+                  )),
+    criada_em     TEXT NOT NULL DEFAULT (datetime('now')),
+    atualizada_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (utilizador_id, programa_id)
+);
+
+CREATE TABLE IF NOT EXISTS historico_candidaturas (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidatura_id INTEGER NOT NULL REFERENCES candidaturas(id) ON DELETE CASCADE,
+    estado         TEXT NOT NULL CHECK (estado IN (
+                       'submetida', 'em_analise', 'aprovada', 'rejeitada', 'cancelada'
+                   )),
+    criado_em      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS visualizacoes_programas (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    programa_id INTEGER NOT NULL REFERENCES programas(id) ON DELETE CASCADE,
+    criado_em   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS feedback_programas (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    utilizador_id INTEGER NOT NULL REFERENCES utilizadores(id) ON DELETE CASCADE,
+    programa_id   INTEGER NOT NULL REFERENCES programas(id) ON DELETE CASCADE,
+    avaliacao     INTEGER NOT NULL CHECK (avaliacao BETWEEN 1 AND 5),
+    comentario    TEXT NOT NULL DEFAULT '',
+    criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+    atualizado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (utilizador_id, programa_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_historico_criado_em
     ON historico_alteracoes(criado_em DESC);
 CREATE INDEX IF NOT EXISTS idx_historico_tipo_criado_em
     ON historico_alteracoes(tipo, criado_em DESC);
+CREATE INDEX IF NOT EXISTS idx_candidaturas_utilizador
+    ON candidaturas(utilizador_id, atualizada_em DESC);
+CREATE INDEX IF NOT EXISTS idx_historico_candidaturas
+    ON historico_candidaturas(candidatura_id, criado_em);
+CREATE INDEX IF NOT EXISTS idx_visualizacoes_programas
+    ON visualizacoes_programas(programa_id, criado_em);

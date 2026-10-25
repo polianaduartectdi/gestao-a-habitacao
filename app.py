@@ -1,4 +1,6 @@
+import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -16,7 +18,7 @@ from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
-from flask import (Flask, abort, flash, g, redirect, render_template,
+from flask import (Flask, Response, abort, flash, g, redirect, render_template,
                    request, session, url_for)
 from werkzeug.datastructures import MultiDict
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -67,6 +69,20 @@ APOIOS_PROCURADOS = (
     ("habitacao_indigna", "Resolver condições habitacionais indignas"),
 )
 TIPOLOGIAS = ("T0", "T1", "T2", "T3", "T4")
+ESTADOS_CANDIDATURA = {
+    "submetida": "Submetida",
+    "em_analise": "Em análise",
+    "aprovada": "Aprovada",
+    "rejeitada": "Rejeitada",
+    "cancelada": "Cancelada",
+}
+TRANSICOES_CANDIDATURA = {
+    "submetida": ("em_analise", "cancelada"),
+    "em_analise": ("aprovada", "rejeitada", "cancelada"),
+    "aprovada": (),
+    "rejeitada": (),
+    "cancelada": (),
+}
 
 
 # ---------------------------------------------------------------- Base de dados
@@ -402,6 +418,67 @@ def validar_url_candidatura(valor):
     except ValueError:
         pass
     return None, "O link de candidatura deve ser um endereço http:// ou https:// válido."
+
+
+def transicao_candidatura_valida(estado_atual, novo_estado):
+    return novo_estado in TRANSICOES_CANDIDATURA.get(estado_atual, ())
+
+
+def analisar_csv_programas(conteudo):
+    """Valida CSV UTF-8 com as colunas nome, entidade, descricao e url_candidatura."""
+    erros = []
+    try:
+        leitor = csv.DictReader(io.StringIO(conteudo, newline=""))
+        campos_obrigatorios = {"nome", "entidade", "descricao"}
+        campos = leitor.fieldnames or []
+        if len(campos) != len(set(campos)):
+            return [], ["O CSV contém nomes de colunas repetidos."]
+        if not campos_obrigatorios.issubset(campos):
+            return [], [
+                "O CSV deve incluir as colunas nome, entidade e descricao."
+            ]
+        if set(campos) - campos_obrigatorios - {"url_candidatura"}:
+            return [], ["O CSV contém colunas não suportadas."]
+
+        programas = []
+        for numero_linha, linha in enumerate(leitor, start=2):
+            if None in linha:
+                erros.append(f"Linha {numero_linha}: número de colunas inválido.")
+                continue
+            nome = (linha.get("nome") or "").strip()
+            entidade = (linha.get("entidade") or "").strip()
+            descricao = (linha.get("descricao") or "").strip()
+            url, erro_url = validar_url_candidatura(
+                (linha.get("url_candidatura") or "").strip()
+            )
+            if not nome or len(nome) > 120:
+                erros.append(
+                    f"Linha {numero_linha}: nome obrigatório (máximo 120 caracteres)."
+                )
+            if not entidade or len(entidade) > 120:
+                erros.append(
+                    f"Linha {numero_linha}: entidade obrigatória (máximo 120 caracteres)."
+                )
+            if not descricao or len(descricao) > 2000:
+                erros.append(
+                    f"Linha {numero_linha}: descrição obrigatória (máximo 2000 caracteres)."
+                )
+            if erro_url:
+                erros.append(f"Linha {numero_linha}: {erro_url}")
+            if nome and entidade and descricao and not erro_url:
+                programas.append({
+                    "nome": nome,
+                    "entidade": entidade,
+                    "descricao": descricao,
+                    "url_candidatura": url,
+                })
+            if numero_linha - 1 > 100:
+                return [], ["O CSV não pode conter mais de 100 programas."]
+        if not programas and not erros:
+            erros.append("O CSV não contém programas para importar.")
+        return programas, erros
+    except csv.Error:
+        return [], ["Não foi possível interpretar o ficheiro CSV."]
 
 
 def resumo_criterios_programa(criterios):
@@ -1111,7 +1188,8 @@ def index():
 
 @app.route("/programas/<int:programa_id>")
 def detalhe_programa(programa_id):
-    programa = get_db().execute(
+    db = get_db()
+    programa = db.execute(
         "SELECT id, nome, entidade, descricao, criterios_json, "
         "criterios_configurados, url_candidatura "
         "FROM programas WHERE id = ?",
@@ -1119,12 +1197,47 @@ def detalhe_programa(programa_id):
     ).fetchone()
     if programa is None:
         abort(404)
+    db.execute(
+        "INSERT INTO visualizacoes_programas (programa_id) VALUES (?)",
+        (programa_id,),
+    )
+    db.commit()
+    feedback = db.execute(
+        "SELECT f.avaliacao, f.comentario, f.criado_em "
+        "FROM feedback_programas f WHERE f.programa_id = ? "
+        "ORDER BY f.atualizado_em DESC, f.id DESC LIMIT 20",
+        (programa_id,),
+    ).fetchall()
+    resumo_feedback = db.execute(
+        "SELECT COUNT(*) AS total, AVG(avaliacao) AS media "
+        "FROM feedback_programas WHERE programa_id = ?",
+        (programa_id,),
+    ).fetchone()
+    minha_avaliacao = None
+    if g.user and g.user["papel"] == "cliente":
+        minha_avaliacao = db.execute(
+            "SELECT avaliacao, comentario FROM feedback_programas "
+            "WHERE programa_id = ? AND utilizador_id = ?",
+            (programa_id, g.user["id"]),
+        ).fetchone()
+    candidatura_existente = None
+    if g.user and g.user["papel"] == "cliente":
+        candidatura_existente = db.execute(
+            "SELECT id, estado FROM candidaturas "
+            "WHERE programa_id = ? AND utilizador_id = ?",
+            (programa_id, g.user["id"]),
+        ).fetchone()
     return render_template(
         "programa.html",
         programa=programa,
         criterios=resumo_criterios_programa(
             json.loads(programa["criterios_json"])
         ),
+        feedback=feedback,
+        resumo_feedback=resumo_feedback,
+        minha_avaliacao=minha_avaliacao,
+        candidatura_existente=candidatura_existente,
+        estados_candidatura=ESTADOS_CANDIDATURA,
     )
 
 
@@ -1147,6 +1260,39 @@ def simulador():
         programas=programas,
         criterios_disponiveis=criterios_disponiveis,
     )
+
+
+@app.route("/programas/<int:programa_id>/feedback", methods=["POST"])
+@login_required
+def avaliar_programa(programa_id):
+    if g.user["papel"] != "cliente":
+        return redirect(url_for("admin"))
+    db = get_db()
+    if db.execute(
+        "SELECT id FROM programas WHERE id = ?", (programa_id,)
+    ).fetchone() is None:
+        abort(404)
+    try:
+        avaliacao = int(request.form.get("avaliacao", ""))
+    except ValueError:
+        avaliacao = 0
+    comentario = request.form.get("comentario", "").strip()
+    if not 1 <= avaliacao <= 5:
+        flash("Selecione uma avaliação entre 1 e 5.", "error")
+    elif len(comentario) > 1000:
+        flash("O comentário não pode exceder 1000 caracteres.", "error")
+    else:
+        db.execute(
+            "INSERT INTO feedback_programas "
+            "(utilizador_id, programa_id, avaliacao, comentario) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(utilizador_id, programa_id) "
+            "DO UPDATE SET avaliacao = excluded.avaliacao, "
+            "comentario = excluded.comentario, atualizado_em = datetime('now')",
+            (g.user["id"], programa_id, avaliacao, comentario),
+        )
+        db.commit()
+        flash("A sua avaliação foi guardada.", "ok")
+    return redirect(url_for("detalhe_programa", programa_id=programa_id))
 
 
 @app.route("/registar", methods=["GET", "POST"])
@@ -1433,6 +1579,43 @@ def logout():
     return redirect(url_for("index"))
 
 
+def candidaturas_do_utilizador(utilizador_id):
+    db = get_db()
+    candidaturas = db.execute(
+        "SELECT c.id, c.estado, c.criada_em, c.atualizada_em, "
+        "p.id AS programa_id, p.nome AS programa_nome "
+        "FROM candidaturas c JOIN programas p ON p.id = c.programa_id "
+        "WHERE c.utilizador_id = ? ORDER BY c.atualizada_em DESC, c.id DESC",
+        (utilizador_id,),
+    ).fetchall()
+    if not candidaturas:
+        return []
+    historico = db.execute(
+        "SELECT historico_candidaturas.candidatura_id, "
+        "historico_candidaturas.estado, historico_candidaturas.criado_em "
+        "FROM historico_candidaturas JOIN candidaturas "
+        "ON candidaturas.id = historico_candidaturas.candidatura_id "
+        "WHERE candidaturas.utilizador_id = ? ORDER BY historico_candidaturas.criado_em, "
+        "historico_candidaturas.id",
+        (utilizador_id,),
+    ).fetchall()
+    historico_por_candidatura = {}
+    for evento in historico:
+        historico_por_candidatura.setdefault(evento["candidatura_id"], []).append(
+            evento
+        )
+    resultado = []
+    for candidatura in candidaturas:
+        item = dict(candidatura)
+        item["historico"] = historico_por_candidatura.get(candidatura["id"], [])
+        item["transicoes"] = [
+            (estado, ESTADOS_CANDIDATURA[estado])
+            for estado in TRANSICOES_CANDIDATURA[candidatura["estado"]]
+        ]
+        resultado.append(item)
+    return resultado
+
+
 @app.route("/cliente", methods=["GET", "POST"])
 @login_required
 def cliente():
@@ -1457,6 +1640,8 @@ def cliente():
                 tipologias=TIPOLOGIAS,
                 prestacoes_perfil=[],
                 apoios_perfil=[],
+                candidaturas=candidaturas_do_utilizador(g.user["id"]),
+                estados_candidatura=ESTADOS_CANDIDATURA,
                 perfil_completo=bool(perfil_atual and perfil_atual["regiao"]),
             )
         guardar_perfil_habitacional(g.user["id"], perfil_enviado)
@@ -1487,7 +1672,80 @@ def cliente():
              if valor in perfil["apoios"]]
             if perfil else []
         ),
+        candidaturas=candidaturas_do_utilizador(g.user["id"]),
+        estados_candidatura=ESTADOS_CANDIDATURA,
     )
+
+
+@app.route("/candidaturas", methods=["POST"])
+@login_required
+def registar_candidatura():
+    if g.user["papel"] != "cliente":
+        return redirect(url_for("admin"))
+    try:
+        programa_id = int(request.form.get("programa_id", ""))
+    except ValueError:
+        abort(400)
+    db = get_db()
+    programa = db.execute(
+        "SELECT id FROM programas WHERE id = ?", (programa_id,)
+    ).fetchone()
+    if programa is None:
+        abort(404)
+    ja_existe = db.execute(
+        "SELECT id FROM candidaturas WHERE utilizador_id = ? AND programa_id = ?",
+        (g.user["id"], programa_id),
+    ).fetchone()
+    if ja_existe:
+        flash("Já acompanha uma candidatura a este programa.", "error")
+        return redirect(url_for("detalhe_programa", programa_id=programa_id))
+    cursor = db.execute(
+        "INSERT INTO candidaturas (utilizador_id, programa_id, estado) "
+        "VALUES (?, ?, 'submetida')",
+        (g.user["id"], programa_id),
+    )
+    candidatura_id = cursor.lastrowid
+    db.execute(
+        "INSERT INTO historico_candidaturas (candidatura_id, estado) "
+        "VALUES (?, 'submetida')",
+        (candidatura_id,),
+    )
+    db.commit()
+    flash("Candidatura registada para acompanhamento.", "ok")
+    return redirect(url_for("cliente"))
+
+
+@app.route("/candidaturas/<int:candidatura_id>/estado", methods=["POST"])
+@login_required
+def atualizar_estado_candidatura(candidatura_id):
+    if g.user["papel"] != "cliente":
+        return redirect(url_for("admin"))
+    novo_estado = request.form.get("estado", "")
+    if novo_estado not in ESTADOS_CANDIDATURA:
+        abort(400)
+    db = get_db()
+    candidatura = db.execute(
+        "SELECT id, estado FROM candidaturas "
+        "WHERE id = ? AND utilizador_id = ?",
+        (candidatura_id, g.user["id"]),
+    ).fetchone()
+    if candidatura is None:
+        abort(404)
+    if not transicao_candidatura_valida(candidatura["estado"], novo_estado):
+        flash("Essa alteração de estado não é permitida.", "error")
+        return redirect(url_for("cliente"))
+    db.execute(
+        "UPDATE candidaturas SET estado = ?, atualizada_em = datetime('now') "
+        "WHERE id = ?",
+        (novo_estado, candidatura_id),
+    )
+    db.execute(
+        "INSERT INTO historico_candidaturas (candidatura_id, estado) VALUES (?, ?)",
+        (candidatura_id, novo_estado),
+    )
+    db.commit()
+    flash("Estado da candidatura atualizado.", "ok")
+    return redirect(url_for("cliente"))
 
 
 @app.route("/admin")
@@ -1503,7 +1761,98 @@ def admin():
         "url_candidatura "
         "FROM programas ORDER BY criado_em DESC, id DESC"
     ).fetchall()
-    return render_template("admin.html", utilizadores=utilizadores, programas=programas)
+    estatisticas = {
+        "utilizadores": db.execute(
+            "SELECT COUNT(*) FROM utilizadores WHERE papel = 'cliente'"
+        ).fetchone()[0],
+        "perfis": db.execute(
+            "SELECT COUNT(*) FROM perfis_habitacionais"
+        ).fetchone()[0],
+        "programas": db.execute(
+            "SELECT COUNT(*) FROM programas"
+        ).fetchone()[0],
+        "candidaturas": db.execute(
+            "SELECT COUNT(*) FROM candidaturas"
+        ).fetchone()[0],
+        "consultas": db.execute(
+            "SELECT COUNT(*) FROM visualizacoes_programas"
+        ).fetchone()[0],
+    }
+    candidaturas_por_estado = db.execute(
+        "SELECT estado, COUNT(*) AS total FROM candidaturas GROUP BY estado"
+    ).fetchall()
+    programas_procurados = db.execute(
+        "SELECT p.id, p.nome, COUNT(v.id) AS consultas "
+        "FROM programas p LEFT JOIN visualizacoes_programas v "
+        "ON v.programa_id = p.id GROUP BY p.id HAVING COUNT(v.id) > 0 "
+        "ORDER BY consultas DESC, p.nome LIMIT 5"
+    ).fetchall()
+    return render_template(
+        "admin.html",
+        utilizadores=utilizadores,
+        programas=programas,
+        estatisticas=estatisticas,
+        candidaturas_por_estado=candidaturas_por_estado,
+        estados_candidatura=ESTADOS_CANDIDATURA,
+        programas_procurados=programas_procurados,
+    )
+
+
+@app.route("/admin/programas/modelo-csv")
+@admin_required
+def modelo_csv_programas():
+    conteudo = "nome,entidade,descricao,url_candidatura\n"
+    resposta = Response(conteudo, content_type="text/csv; charset=utf-8")
+    resposta.headers["Content-Disposition"] = (
+        "attachment; filename=modelo-programas.csv"
+    )
+    return resposta
+
+
+@app.route("/admin/programas/importar", methods=["POST"])
+@admin_required
+def importar_programas_csv():
+    ficheiro = request.files.get("ficheiro_csv")
+    if ficheiro is None or not ficheiro.filename:
+        flash("Selecione um ficheiro CSV para importar.", "error")
+        return redirect(url_for("admin"))
+    conteudo_bytes = ficheiro.stream.read(2 * 1024 * 1024 + 1)
+    if len(conteudo_bytes) > 2 * 1024 * 1024:
+        flash("O ficheiro CSV não pode exceder 2 MB.", "error")
+        return redirect(url_for("admin"))
+    try:
+        conteudo = conteudo_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        flash("O ficheiro CSV deve estar codificado em UTF-8.", "error")
+        return redirect(url_for("admin"))
+    programas_importados, erros = analisar_csv_programas(conteudo)
+    if erros:
+        for erro in erros:
+            flash(erro, "error")
+        return redirect(url_for("admin"))
+    db = get_db()
+    for programa in programas_importados:
+        cursor = db.execute(
+            "INSERT INTO programas "
+            "(nome, entidade, descricao, criterios_json, criterios_configurados, "
+            "url_candidatura) VALUES (?, ?, ?, '{}', 0, ?)",
+            (
+                programa["nome"],
+                programa["entidade"],
+                programa["descricao"],
+                programa["url_candidatura"],
+            ),
+        )
+        registar_alteracao(
+            g.user["id"], "programa.criado", "programa", cursor.lastrowid
+        )
+    db.commit()
+    flash(
+        f"{len(programas_importados)} programa(s) importado(s). "
+        "Reveja e configure os critérios antes de ativar a correspondência automática.",
+        "ok",
+    )
+    return redirect(url_for("admin"))
 
 
 @app.route("/admin/historico")

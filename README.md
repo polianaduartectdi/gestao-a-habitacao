@@ -37,7 +37,7 @@ enviado (útil para testar).
 | Ficheiro | Função |
 |---|---|
 | `app.py` | rotas, sessões, ligação à BD, envio de email |
-| `schema.sql` | tabelas: utilizadores, programas, perfis habitacionais e tokens de recuperação/verificação |
+| `schema.sql` | tabelas: utilizadores, programas, perfis, tokens, candidaturas, histórico de estados, consultas agregadas e avaliações |
 | `programas_iniciais.sql` | catálogo inicial de programas e critérios transcritos da lista fornecida |
 | `criar_admin.py` | cria uma conta de administrador |
 | `.env` | configurações e segredos (não partilhar) |
@@ -52,7 +52,11 @@ enviado (útil para testar).
 - `/simulador` consulta automática de programas compatíveis com o perfil guardado, apenas para clientes autenticados
 - `/programas/<id>` página pública com descrição, critérios e link oficial de cada programa
 - `/cliente` perfil editável e área pessoal, só para utilizadores autenticados
-- `/admin` e `/admin/programas/novo` só para administradores; critérios de programas em `/admin/programas/<id>/editar`
+- `/candidaturas` (POST) registar uma candidatura submetida; estado e histórico na área `/cliente`
+- `/admin` só para administradores, com indicadores agregados, gestão de utilizadores e programas
+- `/admin/programas/novo` e `/admin/programas/<id>/editar` gerir programas e critérios
+- `/admin/programas/importar` importar programas em CSV; `/admin/programas/modelo-csv` descarregar o modelo
+- `/programas/<id>/feedback` (POST) guardar ou atualizar uma avaliação de cidadão autenticado
 
 Os programas só aparecem nos resultados do simulador depois de a administração
 assinalar os critérios como revistos. A aplicação inicializa o catálogo a partir
@@ -75,3 +79,21 @@ preencha o campo «Link oficial para informações ou candidatura» com o endere
 da entidade responsável. Os links oficiais fornecidos para o catálogo inicial
 são aplicados automaticamente a cada arranque, incluindo às bases de dados
 existentes.
+
+Os cidadãos podem registar na área pessoal uma candidatura que já submeteram
+oficialmente e acompanhar os estados «Submetida», «Em análise», «Aprovada»,
+«Rejeitada» ou «Cancelada». As transições são limitadas: «Submetida» pode passar
+a «Em análise» ou «Cancelada»; «Em análise» pode passar a «Aprovada»,
+«Rejeitada» ou «Cancelada». Os estados finais não podem ser alterados.
+
+Na página de cada programa, os cidadãos autenticados podem avaliar a qualidade
+da informação e consultar as avaliações publicadas, sem exposição do nome do
+autor. A administração vê apenas indicadores agregados, incluindo programas
+mais consultados, contagens de perfis e candidaturas, sem atividade individual.
+
+Para importar programas, use o modelo CSV disponibilizado na administração.
+O ficheiro deve ser UTF-8, ter as colunas `nome`, `entidade` e `descricao`, e
+pode incluir `url_candidatura`. São aceites até 100 linhas e 2 MB; o lote é
+rejeitado integralmente se alguma linha tiver erros. Os programas importados
+ficam com critérios por rever e devem ser editados antes de ativar a
+correspondência automática.

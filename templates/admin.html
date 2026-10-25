@@ -13,11 +13,56 @@
 
     {% include '_mensagens.html' %}
 
+    <section class="section" aria-labelledby="stats-title">
+      <h2 id="stats-title">Indicadores de utilização</h2>
+      <dl class="stats">
+        <div><dt>Clientes</dt><dd>{{ estatisticas.utilizadores }}</dd></div>
+        <div><dt>Perfis preenchidos</dt><dd>{{ estatisticas.perfis }}</dd></div>
+        <div><dt>Programas</dt><dd>{{ estatisticas.programas }}</dd></div>
+        <div><dt>Candidaturas acompanhadas</dt><dd>{{ estatisticas.candidaturas }}</dd></div>
+        <div><dt>Consultas de programas</dt><dd>{{ estatisticas.consultas }}</dd></div>
+      </dl>
+
+      <div class="section__head">
+        <h3>Candidaturas por estado</h3>
+      </div>
+      {% if candidaturas_por_estado %}
+      <ul>
+        {% for item in candidaturas_por_estado %}
+        <li>{{ estados_candidatura[item.estado] }}: {{ item.total }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Ainda não existem candidaturas acompanhadas.</p>
+      {% endif %}
+
+      <h3>Programas mais consultados</h3>
+      {% if programas_procurados %}
+      <ol>
+        {% for programa in programas_procurados %}
+        <li><a href="{{ url_for('detalhe_programa', programa_id=programa.id) }}">{{ programa.nome }}</a> — {{ programa.consultas }} consulta(s)</li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">Ainda não existem consultas registadas.</p>
+      {% endif %}
+      <p class="muted">Os indicadores são agregados e não apresentam atividade individual de cidadãos.</p>
+    </section>
+
     <section class="section">
       <div class="section__head">
         <h2>Programas de apoio</h2>
         <a class="btn" href="{{ url_for('novo_programa') }}">Novo programa</a>
       </div>
+
+      <form class="program-import" action="{{ url_for('importar_programas_csv') }}" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label for="ficheiro_csv">Importar programas a partir de CSV</label>
+        <input id="ficheiro_csv" name="ficheiro_csv" type="file" accept=".csv,text/csv" required>
+        <p class="muted">UTF-8; até 100 programas e 2 MB. Colunas obrigatórias: nome, entidade, descricao. A coluna url_candidatura é opcional. Os critérios importados ficam por rever.</p>
+        <p><a href="{{ url_for('modelo_csv_programas') }}">Descarregar modelo CSV</a></p>
+        <button class="btn" type="submit">Importar programas</button>
+      </form>
 
       {% if programas %}
       <div class="table-wrap">

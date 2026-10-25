@@ -456,6 +456,40 @@ textarea { resize: vertical; }
 .section__head h2 { font-size: 26px; font-weight: 700; }
 .section .lead { margin: 0 0 16px; }
 
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.stats > div {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.stats dt { color: var(--muted); font-size: 14px; }
+.stats dd { margin: 4px 0 0; font-size: 26px; font-weight: 700; }
+
+.program-import {
+  max-width: 720px;
+  margin: 20px 0;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.program-import .muted { margin: 8px 0; }
+.program-import .btn { margin-top: 12px; }
+
+.feedback-list { display: grid; gap: 12px; margin-top: 20px; }
+.feedback { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; }
+.feedback p { margin: 0; }
+.feedback p + p { margin-top: 8px; white-space: pre-line; }
+
 .profile {
   max-width: 760px;
   margin-top: 32px;

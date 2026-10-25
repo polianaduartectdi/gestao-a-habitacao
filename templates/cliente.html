@@ -118,6 +118,42 @@
       {% endif %}
     </section>
     {% endif %}
+
+    <section class="section" aria-labelledby="applications-title">
+      <div class="section__head">
+        <h2 id="applications-title">As minhas candidaturas</h2>
+      </div>
+      {% if candidaturas %}
+      <div class="cards">
+        {% for candidatura in candidaturas %}
+        <article class="card">
+          <p class="card__entidade">{{ estados_candidatura[candidatura.estado] }}</p>
+          <h3><a href="{{ url_for('detalhe_programa', programa_id=candidatura.programa_id) }}">{{ candidatura.programa_nome }}</a></h3>
+          {% if candidatura.transicoes %}
+          <form action="{{ url_for('atualizar_estado_candidatura', candidatura_id=candidatura.id) }}" method="post">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <label for="estado-{{ candidatura.id }}">Atualizar estado</label>
+            <select id="estado-{{ candidatura.id }}" name="estado" required>
+              {% for estado, etiqueta in candidatura.transicoes %}
+              <option value="{{ estado }}">{{ etiqueta }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn" type="submit">Guardar estado</button>
+          </form>
+          {% endif %}
+          <h4>Histórico de estados</h4>
+          <ol>
+            {% for evento in candidatura.historico %}
+            <li>{{ estados_candidatura[evento.estado] }} — {{ evento.criado_em }}</li>
+            {% endfor %}
+          </ol>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted">Ainda não acompanha candidaturas. Abra um programa e registe a candidatura depois de a submeter à entidade responsável.</p>
+      {% endif %}
+    </section>
   </main>
 
 </body>
