@@ -69,6 +69,13 @@ APOIOS_PROCURADOS = (
     ("habitacao_indigna", "Resolver condições habitacionais indignas"),
 )
 TIPOLOGIAS = ("T0", "T1", "T2", "T3", "T4")
+RELACOES_AGREGADO = (
+    ("conjuge", "Cônjuge ou parceiro/a"),
+    ("filho", "Filho/a"),
+    ("pai_mae", "Pai ou mãe"),
+    ("irmao", "Irmão ou irmã"),
+    ("outro", "Outro familiar ou pessoa"),
+)
 ESTADOS_CANDIDATURA = {
     "submetida": "Submetida",
     "em_analise": "Em análise",
@@ -115,6 +122,11 @@ def init_db():
                 "ALTER TABLE utilizadores "
                 "ADD COLUMN email_verificado INTEGER NOT NULL DEFAULT 1"
             )
+        if "ativo" not in colunas:
+            db.execute(
+                "ALTER TABLE utilizadores "
+                "ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1"
+            )
         colunas_programas = [
             linha[1] for linha in db.execute("PRAGMA table_info(programas)")
         ]
@@ -158,6 +170,61 @@ def init_db():
                     f"ALTER TABLE perfis_habitacionais "
                     f"ADD COLUMN {nome_coluna} {tipo_coluna}"
                 )
+        historico_sql = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' "
+            "AND name = 'historico_alteracoes'"
+        ).fetchone()[0]
+        colunas_historico = {
+            linha[1]
+            for linha in db.execute("PRAGMA table_info(historico_alteracoes)")
+        }
+        if (
+            "detalhes" not in colunas_historico
+            or "'utilizador.atualizado'" not in historico_sql
+        ):
+            db.execute(
+                "ALTER TABLE historico_alteracoes "
+                "RENAME TO historico_alteracoes_antigo"
+            )
+            db.execute(
+                "CREATE TABLE historico_alteracoes ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "tipo TEXT NOT NULL CHECK (tipo IN ("
+                "'utilizador.criado', 'utilizador.email_verificado', "
+                "'utilizador.palavra_passe_alterada', 'utilizador.atualizado', "
+                "'utilizador.ativado', 'utilizador.desativado', "
+                "'utilizador.eliminado', 'perfil.criado', 'perfil.atualizado', "
+                "'membro.criado', 'membro.atualizado', 'membro.eliminado', "
+                "'programa.criado', 'programa.atualizado')), "
+                "entidade TEXT NOT NULL CHECK (entidade IN "
+                "('utilizador', 'perfil', 'membro', 'programa')), "
+                "entidade_id INTEGER NOT NULL CHECK (entidade_id > 0), "
+                "responsavel_id INTEGER NOT NULL CHECK (responsavel_id > 0), "
+                "responsavel_nome TEXT NOT NULL, "
+                "responsavel_email TEXT NOT NULL, "
+                "detalhes TEXT NOT NULL DEFAULT '', "
+                "criado_em TEXT NOT NULL DEFAULT (datetime('now')))"
+            )
+            detalhes_expr = (
+                "detalhes" if "detalhes" in colunas_historico else "''"
+            )
+            db.execute(
+                "INSERT INTO historico_alteracoes "
+                "(id, tipo, entidade, entidade_id, responsavel_id, "
+                "responsavel_nome, responsavel_email, detalhes, criado_em) "
+                "SELECT id, tipo, entidade, entidade_id, responsavel_id, "
+                f"responsavel_nome, responsavel_email, {detalhes_expr}, criado_em "
+                "FROM historico_alteracoes_antigo"
+            )
+            db.execute("DROP TABLE historico_alteracoes_antigo")
+            db.execute(
+                "CREATE INDEX idx_historico_criado_em "
+                "ON historico_alteracoes(criado_em DESC)"
+            )
+            db.execute(
+                "CREATE INDEX idx_historico_tipo_criado_em "
+                "ON historico_alteracoes(tipo, criado_em DESC)"
+            )
         with open(
             os.path.join(BASE_DIR, "programas_iniciais.sql"), encoding="utf-8"
         ) as f:
@@ -201,11 +268,13 @@ def carregar_utilizador():
     user_id = session.get("user_id")
     if user_id is not None:
         g.user = get_db().execute(
-            "SELECT id, nome, apelido, email, papel FROM utilizadores WHERE id = ?",
+            "SELECT id, nome, apelido, email, papel, ativo "
+            "FROM utilizadores WHERE id = ?",
             (user_id,),
         ).fetchone()
-        if g.user is None:          # utilizador apagado entretanto
+        if g.user is None or not g.user["ativo"]:
             session.clear()
+            g.user = None
 
 
 def login_required(view):
@@ -232,14 +301,21 @@ TIPOS_HISTORICO = {
     "utilizador.criado": "Conta criada",
     "utilizador.email_verificado": "Email confirmado",
     "utilizador.palavra_passe_alterada": "Palavra-passe alterada",
+    "utilizador.atualizado": "Conta atualizada",
+    "utilizador.ativado": "Conta ativada",
+    "utilizador.desativado": "Conta desativada",
+    "utilizador.eliminado": "Conta eliminada",
     "perfil.criado": "Perfil criado",
     "perfil.atualizado": "Perfil atualizado",
+    "membro.criado": "Membro do agregado adicionado",
+    "membro.atualizado": "Membro do agregado atualizado",
+    "membro.eliminado": "Membro do agregado removido",
     "programa.criado": "Programa criado",
     "programa.atualizado": "Programa atualizado",
 }
 
 
-def registar_alteracao(responsavel_id, tipo, entidade, entidade_id):
+def registar_alteracao(responsavel_id, tipo, entidade, entidade_id, detalhes=""):
     responsavel = get_db().execute(
         "SELECT nome, apelido, email FROM utilizadores WHERE id = ?",
         (responsavel_id,),
@@ -249,9 +325,10 @@ def registar_alteracao(responsavel_id, tipo, entidade, entidade_id):
     get_db().execute(
         "INSERT INTO historico_alteracoes "
         "(tipo, entidade, entidade_id, responsavel_id, responsavel_nome, "
-        "responsavel_email) VALUES (?, ?, ?, ?, ?, ?)",
+        "responsavel_email, detalhes) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (tipo, entidade, entidade_id, responsavel_id,
-         f"{responsavel['nome']} {responsavel['apelido']}", responsavel["email"]),
+         f"{responsavel['nome']} {responsavel['apelido']}", responsavel["email"],
+         detalhes),
     )
 
 
@@ -844,6 +921,93 @@ def respostas_do_perfil(perfil):
     }
 
 
+def membros_do_agregado(utilizador_id):
+    return get_db().execute(
+        "SELECT id, nome, relacao, idade, rendimento_mensal "
+        "FROM membros_agregado WHERE utilizador_id = ? ORDER BY id",
+        (utilizador_id,),
+    ).fetchall()
+
+
+def validar_membro_agregado(form):
+    nome = form.get("nome", "").strip()
+    relacao = form.get("relacao", "")
+    idade_texto = form.get("idade", "").strip()
+    rendimento_texto = form.get("rendimento_mensal", "").strip()
+    erros = []
+    if not nome:
+        erros.append("Indique o nome do membro do agregado.")
+    elif len(nome) > 100:
+        erros.append("O nome não pode exceder 100 caracteres.")
+    if relacao not in dict(RELACOES_AGREGADO):
+        erros.append("Selecione uma relação válida com o candidato.")
+
+    idade = None
+    if idade_texto:
+        try:
+            idade = int(idade_texto)
+            if not 0 <= idade <= 120:
+                raise ValueError
+        except ValueError:
+            erros.append("A idade deve estar entre 0 e 120 anos.")
+
+    rendimento = None
+    if rendimento_texto:
+        try:
+            rendimento = int(rendimento_texto)
+            if not 0 <= rendimento <= 10_000_000:
+                raise ValueError
+        except ValueError:
+            erros.append("O rendimento deve estar entre 0 e 10 000 000 euros.")
+
+    return {
+        "nome": nome,
+        "relacao": relacao,
+        "idade": idade,
+        "rendimento_mensal": rendimento,
+    }, erros
+
+
+def sincronizar_pessoas_agregado(utilizador_id, membros_antes):
+    db = get_db()
+    perfil = db.execute(
+        "SELECT pessoas FROM perfis_habitacionais WHERE utilizador_id = ?",
+        (utilizador_id,),
+    ).fetchone()
+    if perfil is None:
+        return
+    membros = db.execute(
+        "SELECT relacao, idade FROM membros_agregado "
+        "WHERE utilizador_id = ? ORDER BY id",
+        (utilizador_id,),
+    ).fetchall()
+    membros_agora = len(membros)
+    esperado_antes = membros_antes + 1
+    pessoas = (
+        membros_agora + 1
+        if perfil["pessoas"] <= esperado_antes
+        else perfil["pessoas"]
+    )
+    criancas = int(any(
+        membro["relacao"] == "filho"
+        or (membro["idade"] is not None and membro["idade"] < 18)
+        for membro in membros
+    ))
+    idade_parceiro = next(
+        (
+            membro["idade"] for membro in membros
+            if membro["relacao"] == "conjuge" and membro["idade"] is not None
+        ),
+        None,
+    )
+    db.execute(
+        "UPDATE perfis_habitacionais SET pessoas = ?, criancas = ?, "
+        "idade_parceiro = ?, atualizado_em = datetime('now') "
+        "WHERE utilizador_id = ?",
+        (pessoas, criancas, idade_parceiro, utilizador_id),
+    )
+
+
 def obter_programas_compativeis(respostas):
     db = get_db()
     programas_configurados = db.execute(
@@ -994,6 +1158,26 @@ def validar_perfil_habitacional(form):
 
 def guardar_perfil_habitacional(utilizador_id, perfil):
     db = get_db()
+    membros = db.execute(
+        "SELECT relacao, idade FROM membros_agregado "
+        "WHERE utilizador_id = ? ORDER BY id",
+        (utilizador_id,),
+    ).fetchall()
+    total_membros = len(membros)
+    perfil["pessoas"] = max(perfil["pessoas"], total_membros + 1)
+    if membros:
+        perfil["criancas"] = any(
+            membro["relacao"] == "filho"
+            or (membro["idade"] is not None and membro["idade"] < 18)
+            for membro in membros
+        )
+        perfil["idade_parceiro"] = next(
+            (
+                membro["idade"] for membro in membros
+                if membro["relacao"] == "conjuge" and membro["idade"] is not None
+            ),
+            None,
+        )
     perfil_existente = db.execute(
         "SELECT 1 FROM perfis_habitacionais WHERE utilizador_id = ?",
         (utilizador_id,),
@@ -1048,6 +1232,7 @@ def guardar_perfil_habitacional(utilizador_id, perfil):
         "perfil.atualizado" if perfil_existente else "perfil.criado",
         "perfil",
         utilizador_id,
+        "Dados do perfil habitacional guardados.",
     )
     db.commit()
 
@@ -1311,7 +1496,7 @@ def registar():
             erros.append("Indique o seu nome.")
         if not apelido:
             erros.append("Indique o seu apelido.")
-        if not EMAIL_RE.match(email):
+        if len(email) > 254 or not EMAIL_RE.match(email):
             erros.append("Indique um email válido.")
         if len(password) < 8:
             erros.append("A palavra-passe deve ter pelo menos 8 caracteres.")
@@ -1327,7 +1512,8 @@ def registar():
                     (nome, apelido, email, generate_password_hash(password)),
                 )
                 registar_alteracao(
-                    cursor.lastrowid, "utilizador.criado", "utilizador", cursor.lastrowid
+                    cursor.lastrowid, "utilizador.criado", "utilizador",
+                    cursor.lastrowid, "Conta criada; email pendente de confirmação.",
                 )
                 db.commit()
             except sqlite3.IntegrityError:
@@ -1365,7 +1551,9 @@ def login():
             "SELECT * FROM utilizadores WHERE email = ?", (email,)
         ).fetchone()
 
-        if user and check_password_hash(user["password_hash"], password):
+        if user and user["ativo"] and check_password_hash(
+            user["password_hash"], password
+        ):
             if not user["email_verificado"]:
                 flash("Confirme o seu email antes de entrar. Se não recebeu o "
                       "link, pode pedir um novo abaixo.", "error")
@@ -1473,6 +1661,7 @@ def redefinir(token):
             registar_alteracao(
                 registo["utilizador_id"], "utilizador.palavra_passe_alterada",
                 "utilizador", registo["utilizador_id"],
+                "Palavra-passe redefinida; o valor não é registado.",
             )
             # O link só pode ser usado uma vez
             db.execute("DELETE FROM tokens_recuperacao WHERE utilizador_id = ?",
@@ -1538,6 +1727,7 @@ def verificar(token):
     registar_alteracao(
         registo["utilizador_id"], "utilizador.email_verificado", "utilizador",
         registo["utilizador_id"],
+        "Endereço de email confirmado.",
     )
     db.execute("DELETE FROM tokens_verificacao WHERE utilizador_id = ?",
                (registo["utilizador_id"],))
@@ -1577,6 +1767,151 @@ def reenviar_verificacao():
 def logout():
     session.clear()
     return redirect(url_for("index"))
+
+
+@app.route("/agregado/membros/novo", methods=["GET", "POST"])
+@login_required
+def novo_membro_agregado():
+    if g.user["papel"] != "cliente":
+        return redirect(url_for("admin"))
+    db = get_db()
+    perfil = db.execute(
+        "SELECT 1 FROM perfis_habitacionais WHERE utilizador_id = ?",
+        (g.user["id"],),
+    ).fetchone()
+    if perfil is None:
+        flash("Preencha primeiro o seu perfil habitacional.", "error")
+        return redirect(url_for("cliente", editar=1))
+    if request.method == "POST":
+        membro, erros = validar_membro_agregado(request.form)
+        if erros:
+            for erro in erros:
+                flash(erro, "error")
+            return render_template(
+                "membro_agregado.html",
+                membro=membro,
+                relacoes=RELACOES_AGREGADO,
+                editar=False,
+            )
+        total_antes = db.execute(
+            "SELECT COUNT(*) FROM membros_agregado WHERE utilizador_id = ?",
+            (g.user["id"],),
+        ).fetchone()[0]
+        if total_antes >= 29:
+            flash("O agregado não pode exceder 30 pessoas, incluindo o candidato.", "error")
+            return redirect(url_for("cliente"))
+        cursor = db.execute(
+            "INSERT INTO membros_agregado "
+            "(utilizador_id, nome, relacao, idade, rendimento_mensal) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                g.user["id"],
+                membro["nome"],
+                membro["relacao"],
+                membro["idade"],
+                membro["rendimento_mensal"],
+            ),
+        )
+        sincronizar_pessoas_agregado(g.user["id"], total_antes)
+        registar_alteracao(
+            g.user["id"], "membro.criado", "membro", cursor.lastrowid,
+            "Membro adicionado ao agregado.",
+        )
+        db.commit()
+        flash("Membro do agregado adicionado.", "ok")
+        return redirect(url_for("cliente"))
+    return render_template(
+        "membro_agregado.html",
+        membro={},
+        relacoes=RELACOES_AGREGADO,
+        editar=False,
+    )
+
+
+@app.route("/agregado/membros/<int:membro_id>/editar", methods=["GET", "POST"])
+@login_required
+def editar_membro_agregado(membro_id):
+    if g.user["papel"] != "cliente":
+        return redirect(url_for("admin"))
+    db = get_db()
+    membro = db.execute(
+        "SELECT id, nome, relacao, idade, rendimento_mensal "
+        "FROM membros_agregado WHERE id = ? AND utilizador_id = ?",
+        (membro_id, g.user["id"]),
+    ).fetchone()
+    if membro is None:
+        abort(404)
+    membro = dict(membro)
+    if request.method == "POST":
+        valores, erros = validar_membro_agregado(request.form)
+        if erros:
+            for erro in erros:
+                flash(erro, "error")
+            return render_template(
+                "membro_agregado.html",
+                membro=valores,
+                relacoes=RELACOES_AGREGADO,
+                editar=True,
+                membro_id=membro_id,
+            )
+        total_antes = db.execute(
+            "SELECT COUNT(*) FROM membros_agregado WHERE utilizador_id = ?",
+            (g.user["id"],),
+        ).fetchone()[0]
+        db.execute(
+            "UPDATE membros_agregado SET nome = ?, relacao = ?, idade = ?, "
+            "rendimento_mensal = ?, atualizado_em = datetime('now') "
+            "WHERE id = ? AND utilizador_id = ?",
+            (
+                valores["nome"],
+                valores["relacao"],
+                valores["idade"],
+                valores["rendimento_mensal"],
+                membro_id,
+                g.user["id"],
+            ),
+        )
+        sincronizar_pessoas_agregado(g.user["id"], total_antes)
+        registar_alteracao(
+            g.user["id"], "membro.atualizado", "membro", membro_id,
+            "Dados do membro atualizados.",
+        )
+        db.commit()
+        flash("Dados do membro do agregado atualizados.", "ok")
+        return redirect(url_for("cliente"))
+    return render_template(
+        "membro_agregado.html",
+        membro=membro,
+        relacoes=RELACOES_AGREGADO,
+        editar=True,
+        membro_id=membro_id,
+    )
+
+
+@app.route("/agregado/membros/<int:membro_id>/remover", methods=["POST"])
+@login_required
+def remover_membro_agregado(membro_id):
+    if g.user["papel"] != "cliente":
+        return redirect(url_for("admin"))
+    db = get_db()
+    total_antes = db.execute(
+        "SELECT COUNT(*) FROM membros_agregado WHERE utilizador_id = ?",
+        (g.user["id"],),
+    ).fetchone()[0]
+    cursor = db.execute(
+        "DELETE FROM membros_agregado WHERE id = ? AND utilizador_id = ?",
+        (membro_id, g.user["id"]),
+    )
+    if cursor.rowcount == 0:
+        abort(404)
+    sincronizar_pessoas_agregado(g.user["id"], total_antes)
+    registar_alteracao(
+        g.user["id"], "membro.eliminado", "membro", membro_id,
+        "Membro removido do agregado.",
+    )
+    db.commit()
+    flash("Membro removido do agregado.", "ok")
+    return redirect(url_for("cliente"))
 
 
 def candidaturas_do_utilizador(utilizador_id):
@@ -1628,6 +1963,7 @@ def cliente():
             for erro in erros:
                 flash(erro, "error")
             perfil_atual = obter_perfil_habitacional(g.user["id"])
+            membros = membros_do_agregado(g.user["id"])
             return render_template(
                 "cliente.html",
                 perfil=perfil_atual,
@@ -1641,6 +1977,11 @@ def cliente():
                 prestacoes_perfil=[],
                 apoios_perfil=[],
                 candidaturas=candidaturas_do_utilizador(g.user["id"]),
+                membros_agregado=membros,
+                idade_parceiro_gerida=any(
+                    membro["relacao"] == "conjuge" for membro in membros
+                ),
+                relacoes_agregado=dict(RELACOES_AGREGADO),
                 estados_candidatura=ESTADOS_CANDIDATURA,
                 perfil_completo=bool(perfil_atual and perfil_atual["regiao"]),
             )
@@ -1649,6 +1990,7 @@ def cliente():
         return redirect(url_for("cliente"))
 
     perfil = obter_perfil_habitacional(g.user["id"])
+    membros = membros_do_agregado(g.user["id"])
     perfil_completo = perfil is not None and bool(perfil["regiao"])
     editar_perfil = not perfil_completo or request.args.get("editar") == "1"
     return render_template(
@@ -1673,6 +2015,11 @@ def cliente():
             if perfil else []
         ),
         candidaturas=candidaturas_do_utilizador(g.user["id"]),
+        membros_agregado=membros,
+        idade_parceiro_gerida=any(
+            membro["relacao"] == "conjuge" for membro in membros
+        ),
+        relacoes_agregado=dict(RELACOES_AGREGADO),
         estados_candidatura=ESTADOS_CANDIDATURA,
     )
 
@@ -1753,7 +2100,7 @@ def atualizar_estado_candidatura(candidatura_id):
 def admin():
     db = get_db()
     utilizadores = db.execute(
-        "SELECT id, nome, apelido, email, papel, email_verificado, criado_em "
+        "SELECT id, nome, apelido, email, papel, ativo, email_verificado, criado_em "
         "FROM utilizadores ORDER BY criado_em DESC, id DESC"
     ).fetchall()
     programas = db.execute(
@@ -1795,7 +2142,258 @@ def admin():
         candidaturas_por_estado=candidaturas_por_estado,
         estados_candidatura=ESTADOS_CANDIDATURA,
         programas_procurados=programas_procurados,
+        data_inicio=request.args.get("data_inicio", ""),
+        data_fim=request.args.get("data_fim", ""),
     )
+
+
+@app.route("/admin/relatorio.csv")
+@admin_required
+def relatorio_agregado():
+    data_inicio = request.args.get("data_inicio", "").strip()
+    data_fim = request.args.get("data_fim", "").strip()
+    for valor in (data_inicio, data_fim):
+        if valor:
+            try:
+                datetime.strptime(valor, "%Y-%m-%d")
+            except ValueError:
+                abort(400)
+    if data_inicio and data_fim and data_inicio > data_fim:
+        abort(400)
+
+    filtros = []
+    parametros = []
+    if data_inicio:
+        filtros.append("date({coluna}) >= date(?)")
+        parametros.append(data_inicio)
+    if data_fim:
+        filtros.append("date({coluna}) <= date(?)")
+        parametros.append(data_fim)
+
+    db = get_db()
+
+    def contar_tabela(tabela, coluna_data, condicao="", argumentos=()):
+        clausulas = [
+            filtro.format(coluna=coluna_data) for filtro in filtros
+        ]
+        if condicao:
+            clausulas.append(condicao)
+        consulta = f"SELECT COUNT(*) FROM {tabela}"
+        if clausulas:
+            consulta += " WHERE " + " AND ".join(clausulas)
+        return db.execute(consulta, (*parametros, *argumentos)).fetchone()[0]
+
+    linhas = [
+        ("Contas de cliente criadas", "Total",
+         contar_tabela("utilizadores", "criado_em", "papel = 'cliente'")),
+        ("Candidaturas registadas", "Total",
+         contar_tabela("candidaturas", "criada_em")),
+        ("Consultas de programas", "Total",
+         contar_tabela("visualizacoes_programas", "criado_em")),
+        ("Avaliações submetidas", "Total",
+         contar_tabela("feedback_programas", "criado_em")),
+    ]
+    for tipo, etiqueta in (
+        ("perfil.criado", "Perfis criados"),
+        ("perfil.atualizado", "Perfis atualizados"),
+        ("programa.criado", "Programas criados"),
+        ("programa.atualizado", "Programas atualizados"),
+    ):
+        linhas.append(
+            (etiqueta, "Total", contar_tabela(
+                "historico_alteracoes", "criado_em", "tipo = ?", (tipo,)
+            ))
+        )
+
+    clausulas_estado = [
+        filtro.format(coluna="criado_em") for filtro in filtros
+    ]
+    consulta_estados = (
+        "SELECT estado, COUNT(*) AS total FROM historico_candidaturas"
+    )
+    if clausulas_estado:
+        consulta_estados += " WHERE " + " AND ".join(clausulas_estado)
+    consulta_estados += " GROUP BY estado ORDER BY estado"
+    for linha in db.execute(consulta_estados, parametros).fetchall():
+        linhas.append(
+            (
+                "Estados registados no histórico de candidaturas",
+                ESTADOS_CANDIDATURA[linha["estado"]],
+                linha["total"],
+            )
+        )
+
+    clausulas_consulta = [
+        filtro.format(coluna="v.criado_em") for filtro in filtros
+    ]
+    consulta_programas = (
+        "SELECT p.nome, COUNT(v.id) AS total FROM visualizacoes_programas v "
+        "JOIN programas p ON p.id = v.programa_id"
+    )
+    if clausulas_consulta:
+        consulta_programas += " WHERE " + " AND ".join(clausulas_consulta)
+    consulta_programas += (
+        " GROUP BY p.id, p.nome ORDER BY total DESC, p.nome LIMIT 5"
+    )
+    for linha in db.execute(consulta_programas, parametros).fetchall():
+        linhas.append(("Programa mais consultado", linha["nome"], linha["total"]))
+
+    conteudo = io.StringIO(newline="")
+    escritor = csv.writer(conteudo, delimiter=";")
+    escritor.writerow(["Indicador agregado", "Categoria", "Total"])
+    for linha in linhas:
+        campos = []
+        for campo in linha:
+            valor = str(campo)
+            if valor.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
+                valor = "'" + valor
+            campos.append(valor)
+        escritor.writerow(campos)
+    resposta = Response(
+        "\ufeff" + conteudo.getvalue(),
+        content_type="text/csv; charset=utf-8",
+    )
+    resposta.headers["Content-Disposition"] = (
+        "attachment; filename=relatorio-agregado.csv"
+    )
+    return resposta
+
+
+@app.route("/admin/utilizadores/<int:utilizador_id>/editar", methods=["GET", "POST"])
+@admin_required
+def editar_utilizador(utilizador_id):
+    db = get_db()
+    utilizador = db.execute(
+        "SELECT id, nome, apelido, email, papel, email_verificado "
+        "FROM utilizadores "
+        "WHERE id = ? AND papel = 'cliente'",
+        (utilizador_id,),
+    ).fetchone()
+    if utilizador is None:
+        abort(404)
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        apelido = request.form.get("apelido", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        erros = []
+        if not nome or len(nome) > 100:
+            erros.append("O nome é obrigatório e não pode exceder 100 caracteres.")
+        if not apelido or len(apelido) > 100:
+            erros.append("O apelido é obrigatório e não pode exceder 100 caracteres.")
+        if len(email) > 254 or not EMAIL_RE.match(email):
+            erros.append("Indique um email válido.")
+        email_alterado = email != utilizador["email"]
+        if erros:
+            for erro in erros:
+                flash(erro, "error")
+            return render_template(
+                "utilizador_editar.html",
+                utilizador={
+                    "id": utilizador_id,
+                    "nome": nome,
+                    "apelido": apelido,
+                    "email": email,
+                },
+            )
+        try:
+            db.execute(
+                "UPDATE utilizadores SET nome = ?, apelido = ?, email = ?, "
+                "email_verificado = ? "
+                "WHERE id = ? AND papel = 'cliente'",
+                (
+                    nome,
+                    apelido,
+                    email,
+                    0 if email_alterado else utilizador["email_verificado"],
+                    utilizador_id,
+                ),
+            )
+        except sqlite3.IntegrityError:
+            flash("Já existe uma conta com esse email.", "error")
+            return render_template(
+                "utilizador_editar.html",
+                utilizador={
+                    "id": utilizador_id,
+                    "nome": nome,
+                    "apelido": apelido,
+                    "email": email,
+                },
+            )
+        registar_alteracao(
+            g.user["id"], "utilizador.atualizado", "utilizador", utilizador_id,
+            "Dados de conta atualizados por um administrador.",
+        )
+        if email_alterado:
+            db.execute(
+                "DELETE FROM tokens_verificacao WHERE utilizador_id = ?",
+                (utilizador_id,),
+            )
+        db.commit()
+        if email_alterado:
+            enviar_verificacao(db, utilizador_id, nome, email)
+            flash(
+                "Conta atualizada. O novo endereço de email tem de ser confirmado.",
+                "ok",
+            )
+            return redirect(url_for("admin"))
+        flash("Conta atualizada.", "ok")
+        return redirect(url_for("admin"))
+    return render_template("utilizador_editar.html", utilizador=utilizador)
+
+
+@app.route("/admin/utilizadores/<int:utilizador_id>/estado", methods=["POST"])
+@admin_required
+def alternar_estado_utilizador(utilizador_id):
+    db = get_db()
+    utilizador = db.execute(
+        "SELECT id, ativo FROM utilizadores "
+        "WHERE id = ? AND papel = 'cliente'",
+        (utilizador_id,),
+    ).fetchone()
+    if utilizador is None:
+        abort(404)
+    novo_estado = 0 if utilizador["ativo"] else 1
+    db.execute(
+        "UPDATE utilizadores SET ativo = ? WHERE id = ? AND papel = 'cliente'",
+        (novo_estado, utilizador_id),
+    )
+    tipo = "utilizador.ativado" if novo_estado else "utilizador.desativado"
+    registar_alteracao(
+        g.user["id"], tipo, "utilizador", utilizador_id,
+        "Conta ativada por um administrador."
+        if novo_estado else "Conta desativada por um administrador.",
+    )
+    db.commit()
+    flash(
+        "Conta ativada." if novo_estado else "Conta desativada; o utilizador "
+        "deixará de conseguir iniciar sessão.",
+        "ok",
+    )
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/utilizadores/<int:utilizador_id>/eliminar", methods=["POST"])
+@admin_required
+def eliminar_utilizador(utilizador_id):
+    db = get_db()
+    utilizador = db.execute(
+        "SELECT id FROM utilizadores "
+        "WHERE id = ? AND papel = 'cliente'",
+        (utilizador_id,),
+    ).fetchone()
+    if utilizador is None:
+        abort(404)
+    registar_alteracao(
+        g.user["id"], "utilizador.eliminado", "utilizador", utilizador_id,
+        "Conta eliminada por um administrador; dados associados removidos.",
+    )
+    db.execute(
+        "DELETE FROM utilizadores WHERE id = ? AND papel = 'cliente'",
+        (utilizador_id,),
+    )
+    db.commit()
+    flash("Conta eliminada e dados associados removidos.", "ok")
+    return redirect(url_for("admin"))
 
 
 @app.route("/admin/programas/modelo-csv")
@@ -1844,7 +2442,8 @@ def importar_programas_csv():
             ),
         )
         registar_alteracao(
-            g.user["id"], "programa.criado", "programa", cursor.lastrowid
+            g.user["id"], "programa.criado", "programa", cursor.lastrowid,
+            "Programa importado via CSV.",
         )
     db.commit()
     flash(
@@ -1882,7 +2481,7 @@ def historico():
 
     sql = (
         "SELECT h.id, h.tipo, h.entidade, h.entidade_id, h.responsavel_id, "
-        "h.responsavel_nome, h.responsavel_email, h.criado_em "
+        "h.responsavel_nome, h.responsavel_email, h.detalhes, h.criado_em "
         "FROM historico_alteracoes h"
     )
     if filtros:
@@ -1896,6 +2495,7 @@ def historico():
         data_inicio=data_inicio,
         data_fim=data_fim,
         tipo=tipo,
+        tipos_rotulo=TIPOS_HISTORICO,
     )
 
 
@@ -1936,7 +2536,8 @@ def novo_programa():
             )
             programa_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
             registar_alteracao(
-                g.user["id"], "programa.criado", "programa", programa_id
+                g.user["id"], "programa.criado", "programa", programa_id,
+                "Programa criado manualmente.",
             )
             db.commit()
             flash("Programa adicionado com sucesso.", "ok")
@@ -2043,7 +2644,8 @@ def editar_programa(programa_id):
                  url_candidatura, programa_id),
             )
             registar_alteracao(
-                g.user["id"], "programa.atualizado", "programa", programa_id
+                g.user["id"], "programa.atualizado", "programa", programa_id,
+                "Dados do programa e critérios atualizados.",
             )
             db.commit()
             flash("Programa atualizado com sucesso.", "ok")
