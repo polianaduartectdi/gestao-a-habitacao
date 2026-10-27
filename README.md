@@ -83,8 +83,9 @@ existentes.
 Os cidadãos podem registar na área pessoal uma candidatura que já submeteram
 oficialmente e acompanhar os estados «Submetida», «Em análise», «Aprovada»,
 «Rejeitada» ou «Cancelada». As transições são limitadas: «Submetida» pode passar
-a «Em análise» ou «Cancelada»; «Em análise» pode passar a «Aprovada»,
-«Rejeitada» ou «Cancelada». Os estados finais não podem ser alterados.
+a «Em análise», «Aprovada», «Rejeitada» ou «Cancelada»; «Em análise» pode passar
+a «Aprovada», «Rejeitada» ou «Cancelada». Os estados finais não podem ser
+alterados.
 
 Na página de cada programa, os cidadãos autenticados podem avaliar a qualidade
 da informação e consultar as avaliações publicadas, sem exposição do nome do

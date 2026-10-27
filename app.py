@@ -77,7 +77,7 @@ ESTADOS_CANDIDATURA = {
     "cancelada": "Cancelada",
 }
 TRANSICOES_CANDIDATURA = {
-    "submetida": ("em_analise", "cancelada"),
+    "submetida": ("em_analise", "aprovada", "rejeitada", "cancelada"),
     "em_analise": ("aprovada", "rejeitada", "cancelada"),
     "aprovada": (),
     "rejeitada": (),

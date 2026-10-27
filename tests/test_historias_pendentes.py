@@ -55,8 +55,11 @@ class HistoriasPendentesTests(unittest.TestCase):
         self.assertTrue(
             aplicacao.transicao_candidatura_valida("em_analise", "aprovada")
         )
-        self.assertFalse(
+        self.assertTrue(
             aplicacao.transicao_candidatura_valida("submetida", "aprovada")
+        )
+        self.assertTrue(
+            aplicacao.transicao_candidatura_valida("submetida", "rejeitada")
         )
         self.assertFalse(
             aplicacao.transicao_candidatura_valida("aprovada", "rejeitada")
@@ -80,6 +83,9 @@ class HistoriasPendentesTests(unittest.TestCase):
                 (candidatura_id,),
             ),
         )
+        resposta = self.cliente.get("/cliente")
+        self.assertIn(b'value="aprovada">Aprovada', resposta.data)
+        self.assertIn(b'value="rejeitada">Rejeitada', resposta.data)
 
         resposta = self.cliente.post(
             f"/candidaturas/{candidatura_id}/estado",
@@ -115,6 +121,27 @@ class HistoriasPendentesTests(unittest.TestCase):
         self.assertEqual(200, resposta.status_code)
         self.assertIn("Histórico de estados".encode(), resposta.data)
 
+    def test_decisao_pode_ser_registada_sem_estado_intermedio(self):
+        self.autenticar(1)
+        self.cliente.post(
+            "/candidaturas",
+            data={"_csrf": "token-teste", "programa_id": str(self.programa_id)},
+        )
+
+        resposta = self.cliente.post(
+            "/candidaturas/1/estado",
+            data={"_csrf": "token-teste", "estado": "rejeitada"},
+        )
+
+        self.assertEqual(302, resposta.status_code)
+        self.assertEqual(
+            [("submetida",), ("rejeitada",)],
+            self.ler_db(
+                "SELECT estado FROM historico_candidaturas "
+                "WHERE candidatura_id = 1 ORDER BY id"
+            ),
+        )
+
     def test_estado_invalido_nao_altera_candidatura(self):
         self.autenticar(1)
         self.cliente.post(
@@ -123,7 +150,7 @@ class HistoriasPendentesTests(unittest.TestCase):
         )
         self.cliente.post(
             "/candidaturas/1/estado",
-            data={"_csrf": "token-teste", "estado": "aprovada"},
+            data={"_csrf": "token-teste", "estado": "submetida"},
         )
         self.assertEqual(
             "submetida",
