@@ -57,7 +57,7 @@
           <label for="data_fim">Data final</label>
           <input id="data_fim" name="data_fim" type="date" value="{{ data_fim }}">
         </div>
-        <div class="profile-form__actions">
+        <div class="profile-form__actions admin-report-actions">
           <button class="btn" type="submit">Descarregar relatório CSV</button>
         </div>
       </form>
@@ -128,6 +128,7 @@
               <td>{{ u.criado_em }}</td>
               <td>
                 {% if u.papel == 'cliente' %}
+                <div class="account-actions">
                 <a href="{{ url_for('editar_utilizador', utilizador_id=u.id) }}">Editar</a>
                 <form action="{{ url_for('alternar_estado_utilizador', utilizador_id=u.id) }}" method="post">
                   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -137,6 +138,7 @@
                   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                   <button class="btn btn--outline" type="submit">Eliminar</button>
                 </form>
+                </div>
                 {% else %}
                 <span class="muted">Conta administrativa</span>
                 {% endif %}
