@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Histórico de alterações | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <h1>Histórico de alterações</h1>
+    {% include '_mensagens.html' %}
+    <p class="muted">O registo identifica a ação, a entidade afetada e o responsável. Valores de perfil, palavras-passe e outros dados sensíveis não são copiados para este histórico. São apresentadas no máximo 500 entradas.</p>
+    <form method="get" class="form-grid">
+      <div>
+        <label for="data_inicio">Data inicial</label>
+        <input id="data_inicio" name="data_inicio" type="date" value="{{ data_inicio }}">
+      </div>
+      <div>
+        <label for="data_fim">Data final</label>
+        <input id="data_fim" name="data_fim" type="date" value="{{ data_fim }}">
+      </div>
+      <div>
+        <label for="tipo">Tipo de alteração</label>
+        <select id="tipo" name="tipo">
+          <option value="">Todos</option>
+          {% for valor, etiqueta in tipos.items() %}
+          <option value="{{ valor }}" {% if tipo == valor %}selected{% endif %}>{{ etiqueta }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="profile-form__actions history-filter-actions">
+        <button class="btn" type="submit">Filtrar</button>
+        <a class="btn btn--outline" href="{{ url_for('historico') }}">Limpar filtros</a>
+      </div>
+    </form>
+
+    {% if eventos %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Ação</th>
+            <th>Entidade</th>
+            <th>ID da entidade</th>
+            <th>Responsável</th>
+            <th>Detalhes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for evento in eventos %}
+          <tr>
+            <td>{{ evento.criado_em }}</td>
+            <td>{{ tipos_rotulo[evento.tipo] }}</td>
+            <td>{{ evento.entidade }}</td>
+            <td>{{ evento.entidade_id }}</td>
+            <td>{{ evento.responsavel_nome }} ({{ evento.responsavel_email }})</td>
+            <td>{{ evento.detalhes or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">Não existem alterações para os filtros selecionados.</p>
+    {% endif %}
+    <p><a class="btn btn--outline" href="{{ url_for('admin') }}">Voltar à administração</a></p>
+  </main>
+
+</body>
+</html>

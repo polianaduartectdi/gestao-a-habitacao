@@ -13,11 +13,71 @@
 
     {% include '_mensagens.html' %}
 
+    <section class="section" aria-labelledby="stats-title">
+      <h2 id="stats-title">Indicadores de utilização</h2>
+      <dl class="stats">
+        <div><dt>Clientes</dt><dd>{{ estatisticas.utilizadores }}</dd></div>
+        <div><dt>Perfis preenchidos</dt><dd>{{ estatisticas.perfis }}</dd></div>
+        <div><dt>Programas</dt><dd>{{ estatisticas.programas }}</dd></div>
+        <div><dt>Candidaturas acompanhadas</dt><dd>{{ estatisticas.candidaturas }}</dd></div>
+        <div><dt>Consultas de programas</dt><dd>{{ estatisticas.consultas }}</dd></div>
+      </dl>
+
+      <div class="section__head">
+        <h3>Candidaturas por estado</h3>
+      </div>
+      {% if candidaturas_por_estado %}
+      <ul>
+        {% for item in candidaturas_por_estado %}
+        <li>{{ estados_candidatura[item.estado] }}: {{ item.total }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Ainda não existem candidaturas acompanhadas.</p>
+      {% endif %}
+
+      <h3>Programas mais consultados</h3>
+      {% if programas_procurados %}
+      <ol>
+        {% for programa in programas_procurados %}
+        <li><a href="{{ url_for('detalhe_programa', programa_id=programa.id) }}">{{ programa.nome }}</a> — {{ programa.consultas }} consulta(s)</li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">Ainda não existem consultas registadas.</p>
+      {% endif %}
+      <p class="muted">Os indicadores são agregados e não apresentam atividade individual de cidadãos.</p>
+      <h3>Relatórios por período</h3>
+      <form action="{{ url_for('relatorio_agregado') }}" method="get" class="form-grid">
+        <div>
+          <label for="data_inicio">Data inicial</label>
+          <input id="data_inicio" name="data_inicio" type="date" value="{{ data_inicio }}">
+        </div>
+        <div>
+          <label for="data_fim">Data final</label>
+          <input id="data_fim" name="data_fim" type="date" value="{{ data_fim }}">
+        </div>
+        <div class="profile-form__actions admin-report-actions">
+          <button class="btn" type="submit">Descarregar relatório CSV</button>
+        </div>
+      </form>
+      <p><a href="{{ url_for('historico') }}">Consultar histórico de alterações</a></p>
+    </section>
+
     <section class="section">
       <div class="section__head">
         <h2>Programas de apoio</h2>
         <a class="btn" href="{{ url_for('novo_programa') }}">Novo programa</a>
       </div>
+
+      <form class="program-import" action="{{ url_for('importar_programas_csv') }}" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label for="ficheiro_csv">Importar programas a partir de CSV</label>
+        <input id="ficheiro_csv" name="ficheiro_csv" type="file" accept=".csv,text/csv" required>
+        <p class="muted">UTF-8; até 100 programas e 2 MB. Colunas obrigatórias: nome, entidade, descricao. A coluna url_candidatura é opcional. Os critérios importados ficam por rever.</p>
+        <p><a href="{{ url_for('modelo_csv_programas') }}">Descarregar modelo CSV</a></p>
+        <button class="btn" type="submit">Importar programas</button>
+      </form>
 
       {% if programas %}
       <div class="table-wrap">
@@ -54,7 +114,7 @@
       <div class="table-wrap">
         <table class="table">
           <thead>
-            <tr><th>ID</th><th>Nome</th><th>Email</th><th>Papel</th><th>Email confirmado</th><th>Criado em</th></tr>
+            <tr><th>ID</th><th>Nome</th><th>Email</th><th>Papel</th><th>Ativo</th><th>Email confirmado</th><th>Criado em</th><th>Ações</th></tr>
           </thead>
           <tbody>
             {% for u in utilizadores %}
@@ -63,8 +123,26 @@
               <td>{{ u.nome }} {{ u.apelido }}</td>
               <td>{{ u.email }}</td>
               <td>{{ u.papel }}</td>
+              <td>{{ 'Sim' if u.ativo else 'Não' }}</td>
               <td>{{ 'Sim' if u.email_verificado else 'Não' }}</td>
               <td>{{ u.criado_em }}</td>
+              <td>
+                {% if u.papel == 'cliente' %}
+                <div class="account-actions">
+                <a href="{{ url_for('editar_utilizador', utilizador_id=u.id) }}">Editar</a>
+                <form action="{{ url_for('alternar_estado_utilizador', utilizador_id=u.id) }}" method="post">
+                  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                  <button class="btn btn--outline" type="submit">{{ 'Desativar' if u.ativo else 'Ativar' }}</button>
+                </form>
+                <form action="{{ url_for('eliminar_utilizador', utilizador_id=u.id) }}" method="post" onsubmit="return confirm('Eliminar esta conta e todos os dados associados? Esta ação não pode ser desfeita.');">
+                  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                  <button class="btn btn--outline" type="submit">Eliminar</button>
+                </form>
+                </div>
+                {% else %}
+                <span class="muted">Conta administrativa</span>
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>

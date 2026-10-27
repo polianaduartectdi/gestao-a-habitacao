@@ -22,7 +22,10 @@
     </div>
     <div>
       <label for="idade_parceiro">Idade do cônjuge/parceiro (se aplicável)</label>
-      <input id="idade_parceiro" name="idade_parceiro" type="number" min="16" max="120" step="1" value="{{ form.get('idade_parceiro', '') }}">
+      <input id="idade_parceiro" name="idade_parceiro" type="number" min="16" max="120" step="1" value="{{ form.get('idade_parceiro', '') }}" {% if idade_parceiro_gerida %}readonly{% endif %}>
+      {% if idade_parceiro_gerida %}
+      <p class="muted">Atualizada nos dados do membro do agregado.</p>
+      {% endif %}
     </div>
     <div>
       <label for="rendimento_anual">Rendimento bruto anual do agregado (€)</label>

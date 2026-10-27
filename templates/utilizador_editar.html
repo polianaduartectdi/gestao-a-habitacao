@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>Editar utilizador | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <h1>Editar conta de utilizador</h1>
+    {% include '_mensagens.html' %}
+    <form class="profile-edit-form" action="{{ url_for('editar_utilizador', utilizador_id=utilizador.id) }}" method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="form-grid">
+        <div>
+          <label for="nome">Nome</label>
+          <input id="nome" name="nome" type="text" maxlength="100" value="{{ utilizador.nome }}" required>
+        </div>
+        <div>
+          <label for="apelido">Apelido</label>
+          <input id="apelido" name="apelido" type="text" maxlength="100" value="{{ utilizador.apelido }}" required>
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" maxlength="254" value="{{ utilizador.email }}" required>
+        </div>
+      </div>
+      <div class="profile-form__actions">
+        <button class="btn" type="submit">Guardar alterações</button>
+        <a class="btn btn--outline" href="{{ url_for('admin') }}">Cancelar</a>
+      </div>
+    </form>
+  </main>
+
+</body>
+</html>

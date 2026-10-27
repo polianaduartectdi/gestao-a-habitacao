@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <title>{{ 'Editar membro' if editar else 'Adicionar membro' }} | Apoio à Habitação</title>
+{% include '_head.html' %}
+</head>
+
+<body>
+{% include '_header.html' %}
+
+  <main class="container">
+    <h1>{{ 'Editar membro do agregado' if editar else 'Adicionar membro ao agregado' }}</h1>
+    {% include '_mensagens.html' %}
+    <form class="profile-edit-form" action="{% if editar %}{{ url_for('editar_membro_agregado', membro_id=membro_id) }}{% else %}{{ url_for('novo_membro_agregado') }}{% endif %}" method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="form-grid">
+        <div>
+          <label for="nome">Nome</label>
+          <input id="nome" name="nome" type="text" maxlength="100" value="{{ membro.get('nome', '') }}" required>
+        </div>
+        <div>
+          <label for="relacao">Relação com o candidato</label>
+          <select id="relacao" name="relacao" required>
+            <option value="">Selecione</option>
+            {% for valor, etiqueta in relacoes %}
+            <option value="{{ valor }}" {% if membro.get('relacao', '') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="idade">Idade (opcional)</label>
+          <input id="idade" name="idade" type="number" min="0" max="120" step="1" value="{{ membro.get('idade') if membro.get('idade') is not none else '' }}">
+        </div>
+        <div>
+          <label for="rendimento_mensal">Rendimento mensal próprio em euros (opcional)</label>
+          <input id="rendimento_mensal" name="rendimento_mensal" type="number" min="0" max="10000000" step="1" value="{{ membro.get('rendimento_mensal') if membro.get('rendimento_mensal') is not none else '' }}">
+        </div>
+      </div>
+      <div class="profile-form__actions">
+        <button class="btn" type="submit">{{ 'Guardar alterações' if editar else 'Adicionar membro' }}</button>
+        <a class="btn btn--outline" href="{{ url_for('cliente') }}">Cancelar</a>
+      </div>
+    </form>
+  </main>
+
+</body>
+</html>

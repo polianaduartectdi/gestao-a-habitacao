@@ -64,7 +64,14 @@
         </div>
         <div>
           <dt>Há crianças no agregado</dt>
-          <dd>{% if editar_perfil %}<label class="check"><input type="checkbox" name="criancas" {% if form.get('criancas') %}checked{% endif %}> Sim</label>{% else %}{{ 'Sim' if perfil.criancas else 'Não' }}{% endif %}</dd>
+          <dd>
+            {% if editar_perfil and membros_agregado %}
+            {{ 'Sim' if perfil.criancas else 'Não' }}
+            <p class="muted">Determinado pelos membros registados e pelas respetivas idades.</p>
+            {% elif editar_perfil %}
+            <label class="check"><input type="checkbox" name="criancas" {% if form.get('criancas') %}checked{% endif %}> Sim</label>
+            {% else %}{{ 'Sim' if perfil.criancas else 'Não' }}{% endif %}
+          </dd>
         </div>
         <div>
           <dt>Família monoparental</dt>
@@ -117,7 +124,68 @@
       <a class="btn" href="{{ url_for('simulador') }}">Ver programas adequados ao meu perfil</a>
       {% endif %}
     </section>
+    <section class="section" aria-labelledby="household-title">
+      <div class="section__head">
+        <h2 id="household-title">Composição do agregado familiar</h2>
+        <a class="btn" href="{{ url_for('novo_membro_agregado') }}">Adicionar membro</a>
+      </div>
+      <p class="muted">Registe as pessoas que vivem consigo além de si. O número total e a existência de crianças no perfil são atualizados a partir dos membros registados, mantendo pelo menos o total que já tinha indicado.</p>
+      {% if membros_agregado %}
+      <div class="cards">
+        {% for membro in membros_agregado %}
+        <article class="card">
+          <h3>{{ membro.nome }}</h3>
+          <p>{{ relacoes_agregado[membro.relacao] }}{% if membro.idade is not none %} · {{ membro.idade }} anos{% endif %}</p>
+          <p>Rendimento mensal próprio: {{ (membro.rendimento_mensal|string + ' €') if membro.rendimento_mensal is not none else 'Não indicado' }}</p>
+          <a class="btn btn--outline" href="{{ url_for('editar_membro_agregado', membro_id=membro.id) }}">Editar</a>
+          <form action="{{ url_for('remover_membro_agregado', membro_id=membro.id) }}" method="post">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn btn--outline" type="submit">Remover</button>
+          </form>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted">Ainda não adicionou outros membros ao agregado.</p>
+      {% endif %}
+    </section>
     {% endif %}
+
+    <section class="section" aria-labelledby="applications-title">
+      <div class="section__head">
+        <h2 id="applications-title">As minhas candidaturas</h2>
+      </div>
+      {% if candidaturas %}
+      <div class="cards">
+        {% for candidatura in candidaturas %}
+        <article class="card">
+          <p class="card__entidade">{{ estados_candidatura[candidatura.estado] }}</p>
+          <h3><a href="{{ url_for('detalhe_programa', programa_id=candidatura.programa_id) }}">{{ candidatura.programa_nome }}</a></h3>
+          {% if candidatura.transicoes %}
+          <form action="{{ url_for('atualizar_estado_candidatura', candidatura_id=candidatura.id) }}" method="post">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <label for="estado-{{ candidatura.id }}">Atualizar estado</label>
+            <select id="estado-{{ candidatura.id }}" name="estado" required>
+              {% for estado, etiqueta in candidatura.transicoes %}
+              <option value="{{ estado }}">{{ etiqueta }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn" type="submit">Guardar estado</button>
+          </form>
+          {% endif %}
+          <h4>Histórico de estados</h4>
+          <ol>
+            {% for evento in candidatura.historico %}
+            <li>{{ estados_candidatura[evento.estado] }} — {{ evento.criado_em }}</li>
+            {% endfor %}
+          </ol>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted">Ainda não acompanha candidaturas. Abra um programa e registe a candidatura depois de a submeter à entidade responsável.</p>
+      {% endif %}
+    </section>
   </main>
 
 </body>
