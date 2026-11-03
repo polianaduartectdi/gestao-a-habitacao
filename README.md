@@ -90,13 +90,14 @@ da entidade responsável. Os links oficiais fornecidos para o catálogo inicial
 são aplicados automaticamente a cada arranque, incluindo às bases de dados
 existentes.
 
-Os cidadãos podem registar na área pessoal uma candidatura que já submeteram
-oficialmente à entidade responsável (a aplicação não submete candidaturas em
-nome do cidadão) e acompanhar os estados «Submetida», «Em análise», «Aprovada»,
-«Rejeitada» ou «Cancelada». As transições são limitadas: «Submetida» pode passar
-a «Em análise», «Aprovada», «Rejeitada» ou «Cancelada»; «Em análise» pode passar
-a «Aprovada», «Rejeitada» ou «Cancelada». Os estados finais não podem ser
-alterados.
+A candidatura tem de ser submetida pelo cidadão diretamente junto da entidade
+responsável, através dos canais oficiais. A aplicação não submete candidaturas
+nem substitui esse processo: é apenas uma ferramenta para o cidadão registar
+uma candidatura já submetida e acompanhar o seu estado («Submetida»,
+«Em análise», «Aprovada», «Rejeitada» ou «Cancelada»). As transições são
+limitadas: «Submetida» pode passar a «Em análise», «Aprovada», «Rejeitada» ou
+«Cancelada»; «Em análise» pode passar a «Aprovada», «Rejeitada» ou
+«Cancelada». Os estados finais não podem ser alterados.
 
 Na página de cada programa, os cidadãos autenticados podem avaliar a qualidade
 da informação e consultar as avaliações publicadas, sem exposição do nome do
