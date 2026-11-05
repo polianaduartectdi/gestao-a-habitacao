@@ -1239,6 +1239,21 @@ def guardar_perfil_habitacional(utilizador_id, perfil):
 
 # ---------------------------------------------------------------- Email (SMTP)
 
+def _base_url_publica():
+    base_configurada = os.environ.get("BASE_URL", "").rstrip("/")
+    nome_codespace = os.environ.get("CODESPACE_NAME")
+    dominio_forwarding = os.environ.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+
+    if nome_codespace and dominio_forwarding:
+        if base_configurada and urlsplit(base_configurada).hostname not in {
+            "localhost", "127.0.0.1", "0.0.0.0"
+        }:
+            return base_configurada
+        return f"https://{nome_codespace}-5000.{dominio_forwarding}"
+
+    return base_configurada or "http://127.0.0.1:5000"
+
+
 def enviar_email(destino, assunto, corpo):
     """Envia um email por SMTP, usando as variáveis de ambiente / ficheiro .env.
 
@@ -1613,7 +1628,7 @@ def recuperar():
                 )
                 db.commit()
 
-                base = os.environ.get("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+                base = _base_url_publica()
                 link = base + url_for("redefinir", token=token)
                 corpo = (
                     f"Olá, {user['nome']}.\n\n"
@@ -1697,7 +1712,7 @@ def enviar_verificacao(db, user_id, nome, email):
     )
     db.commit()
 
-    base = os.environ.get("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+    base = _base_url_publica()
     link = base + url_for("verificar", token=token)
     corpo = (
         f"Olá, {nome}.\n\n"

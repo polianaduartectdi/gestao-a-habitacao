@@ -31,6 +31,14 @@ e `SMTP_SECURITY` (`starttls`, `ssl` ou `none`).
 Se `SMTP_HOST` não estiver definido, o email é escrito no terminal em vez de
 enviado (útil para testar).
 
+Os links de recuperação da palavra-passe e de verificação de email usam
+`BASE_URL`, se estiver configurada. No GitHub Codespaces, quando `BASE_URL`
+não está definida ou aponta para `localhost`, a aplicação gera automaticamente
+o endereço HTTPS encaminhado para a porta 5000. Confirma que essa porta está
+encaminhada e acessível nas definições **Ports** do Codespace. Noutro alojamento,
+define `BASE_URL` no `.env` com o endereço público da aplicação, por exemplo
+`https://exemplo.pt` (sem `/` no fim).
+
 ## Estrutura
 
 | Ficheiro | Função |
